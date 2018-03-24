@@ -1,0 +1,33 @@
+{
+  "name": "nimiq-pool",
+  "version": "1.0.0",
+  "homepage": "https://nimiq.com/",
+  "description": "",
+  "private": true,
+  "author": {
+    "name": "The Nimiq Core Development Team",
+    "url": "https://nimiq.com/"
+  },
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/nimiq-network/core/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nimiq-network/core.git"
+  },
+  "engines": {
+    "node": ">=7.9.0"
+  },
+  "devDependencies": {
+    "jasmine": "^3.1.0"
+  },
+  "dependencies": {
+    "jasmine-spec-reporter": "^4.2.1",
+    "json5": "^1.0.1",
+    "lodash.merge": "^4.6.1",
+    "minimist": "^1.2.0",
+    "mysql2": "^1.5.3",
+    "ws": "^5.1.0"
+  }
+}
