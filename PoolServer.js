@@ -19,16 +19,33 @@ class PoolServer extends Nimiq.Observable {
      */
     constructor(consensus, name, poolAddress, port, mySqlPsw, sslKeyPath, sslCertPath) {
         super();
+
+        /** @type {Nimiq.FullConsensus} */
         this._consensus = consensus;
+
+        /** @type {string} */
         this.name = name;
+
+        /** @type {Nimiq.Address} */
         this.poolAddress = poolAddress;
+
+        /** @type {number} */
         this.port = port;
-        this.mySqlPsq = mySqlPsw;
+
+        /** @type {string} */
+        this.mySqlPsw = mySqlPsw;
+
+        /** @type {string} */
         this.sslKeyPath = sslKeyPath;
+
+        /** @type {string} */
         this.sslCertPath = sslCertPath;
 
-        /** @type {Map.<number, PoolAgent>} */
-        this._agents = new Map();
+        /** @type {Nimiq.Miner} */
+        this._miner = new Nimiq.Miner(consensus.blockchain, consensus.blockchain.accounts, consensus.mempool, consensus.network.time, poolAddress);
+
+        /** @type {Set.<PoolAgent>} */
+        this._agents = new Set();
 
         /** @type {Nimiq.HashMap.<NetAddress, number>} */
         this._bannedIPv4IPs = new Nimiq.HashMap();
@@ -42,27 +59,32 @@ class PoolServer extends Nimiq.Observable {
     }
 
     async start() {
+        this._currentLightHead = this.consensus.blockchain.head.toLight();
+        await this._updateTransactions();
+
         this.connection = await mysql.createConnection({
             host: 'localhost',
             user: 'nimpool_server',
-            password: this.mySqlPsq,
+            password: this.mySqlPsw,
             database: 'nimpool'
         });
 
-        const sslOptions = {
-            key: fs.readFileSync(this.sslKeyPath),
-            cert: fs.readFileSync(this.sslCertPath)
-        };
-        this._wss = PoolServer.createServer(this.port, sslOptions);
+        this._wss = PoolServer.createServer(this.port, this.sslKeyPath, this.sslCertPath);
         this._wss.on('connection', ws => this._onConnection(ws));
+
+        this._consensus.blockchain.on('head-changed', (head) => this._announceHeadToNano(head));
     }
 
-    static createServer(port, sslOptions) {
-        console.log(port);
+    static createServer(port, sslKeyPath, sslCertPath) {
+        const sslOptions = {
+            key: fs.readFileSync(sslKeyPath),
+            cert: fs.readFileSync(sslCertPath)
+        };
         const httpsServer = https.createServer(sslOptions, (req, res) => {
             res.writeHead(200);
             res.end('Nimiq Pool Server\n');
         }).listen(port);
+        Nimiq.Log.i(PoolServer, "Started server on port " + port);
         return new WebSocket.Server({server: httpsServer});
     }
 
@@ -72,6 +94,10 @@ class PoolServer extends Nimiq.Observable {
         }
     }
 
+    /**
+     * @param {WebSocket} ws
+     * @private
+     */
     _onConnection(ws) {
         const netAddress = Nimiq.NetAddress.fromIP(ws._socket.remoteAddress);
         if (this._isIpBanned(netAddress)) {
@@ -79,10 +105,51 @@ class PoolServer extends Nimiq.Observable {
             ws.close();
         } else {
             const agent = new PoolAgent(this, ws);
-            this._agents.set(agent.nonce, agent);
+            this._agents.add(agent);
         }
     }
 
+    /**
+     * @param {PoolAgent} agent
+     */
+    requestCurrentHead(agent) {
+        console.log('request head');
+        agent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
+    }
+
+    /**
+     * @param {Nimiq.BlockHead} head
+     * @private
+     */
+    async _announceHeadToNano(head) {
+        console.log('new head');
+        this._currentLightHead = head.toLight();
+        await this._updateTransactions();
+        this._announceNewNextToNano();
+    }
+
+    async _updateTransactions() {
+        try {
+            const block = await this._miner.getNextBlock();
+            this._nextTransactions = block.body.transactions;
+            this._nextPrunedAccounts = block.body.prunedAccounts;
+            this._nextAccountsHash = block.header._accountsHash;
+        } catch(e) {
+            setTimeout(() => this._updateTransactions(), 100);
+        }
+    }
+
+    _announceNewNextToNano() {
+        for (const poolAgent of this._agents.values()) {
+            if (poolAgent.mode && poolAgent.mode === PoolAgent.MODE_NANO) {
+                poolAgent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
+            }
+        }
+    }
+
+    /**
+     * @param {WebSocket} ws
+     */
     ban(ws) {
         const netAddress = Nimiq.NetAddress.fromIP(ws._socket.remoteAddress);
         this._banIp(netAddress);
@@ -90,68 +157,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {number} userId
-     * @param {Nimiq.Hash} prevHash
-     * @param {number} prevHashHeight
-     * @param {number} difficulty
-     * @param {Nimiq.Hash} shareHash
-     */
-    async storeShare(userId, prevHash, prevHashHeight, difficulty, shareHash) {
-        await this.connection.execute("INSERT IGNORE INTO block (hash, height) VALUES (?, ?)", [prevHash.serialize(), prevHashHeight]);
-        const [rows, fields] = await this.connection.execute("SELECT id FROM block WHERE hash=?", [prevHash.serialize()]);
-        let prevHashId = rows[0].id;
-        const query = "INSERT INTO share (user, prev_block, difficulty, hash) VALUES (?, ?, ?, ?)";
-        const queryArgs = [userId, prevHashId, difficulty, shareHash.serialize()];
-        await this.connection.execute(query, queryArgs);
-    }
-
-    /**
-     * @param {number} user
-     * @param {string} shareHash
-     * @returns {boolean}
-     */
-    async containsShare(user, shareHash) {
-        const query = "SELECT * from share WHERE user=? and hash=?";
-        const queryArgs = [user, shareHash.serialize()];
-        const [rows, fields] = await this.connection.execute(query, queryArgs);
-        return rows.length > 0;
-    }
-
-    /**
-     * @param {number} userId
-     * @param {boolean} includeVirtual
-     * @returns {Promise<number>}
-     */
-    async getUserBalance(userId, includeVirtual = false) {
-        return await Helper.getUserBalance(this.connection, userId, this._consensus.blockchain.height, includeVirtual);
-    }
-
-    async storePayoutRequest(userId) {
-        const query = "INSERT IGNORE INTO payout_request (user) VALUES (?)";
-        const queryArgs = [userId];
-        await this.connection.execute(query, queryArgs);
-    }
-
-    /**
-     * @param {Nimiq.Address} addr
-     * @returns {Promise<number>}
-     */
-    async getStoreUserId(addr) {
-        await this.connection.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
-        const [rows, fields] = await this.connection.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
-        return rows[0].id;
-    }
-
-    /**
-     * @param {PoolAgent} agent
-     */
-    removeAgent(agent) {
-        this._agents.delete(agent.nonce);
-    }
-
-    /**
      * @param {Nimiq.NetAddress} netAddress
-     * @returns {void}
      * @private
      */
     _banIp(netAddress) {
@@ -182,10 +188,6 @@ class PoolServer extends Nimiq.Observable {
         return false;
     }
 
-    /**
-     * @returns {void}
-     * @private
-     */
     _checkUnbanIps() {
         const now = Date.now();
         for (const netAddress of this._bannedIPv4IPs.keys()) {
@@ -200,12 +202,78 @@ class PoolServer extends Nimiq.Observable {
         }
     }
 
-    /** @type {Nimiq.FullConsensus} */
+    /**
+     * @param {number} userId
+     * @param {number} deviceId
+     * @param {Nimiq.Hash} prevHash
+     * @param {number} prevHashHeight
+     * @param {number} difficulty
+     * @param {Nimiq.Hash} shareHash
+     */
+    async storeShare(userId, deviceId, prevHash, prevHashHeight, difficulty, shareHash) {
+        let prevHashId = await Helper.getStoreBlockId(this.connection, prevHash, prevHashHeight);
+        const query = "INSERT INTO share (user, device, prev_block, difficulty, hash) VALUES (?, ?, ?, ?, ?)";
+        const queryArgs = [userId, deviceId, prevHashId, difficulty, shareHash.serialize()];
+        await this.connection.execute(query, queryArgs);
+    }
+
+    /**
+     * @param {number} user
+     * @param {string} shareHash
+     * @returns {boolean}
+     */
+    async containsShare(user, shareHash) {
+        const query = "SELECT * from share WHERE user=? and hash=?";
+        const queryArgs = [user, shareHash.serialize()];
+        const [rows, fields] = await this.connection.execute(query, queryArgs);
+        return rows.length > 0;
+    }
+
+    /**
+     * @param {number} userId
+     * @param {boolean} includeVirtual
+     * @returns {Promise<number>}
+     */
+    async getUserBalance(userId, includeVirtual = false) {
+        return await Helper.getUserBalance(this.connection, userId, this._consensus.blockchain.height, includeVirtual);
+    }
+
+    /**
+     * @param {number} userId
+     */
+    async storePayoutRequest(userId) {
+        const query = "INSERT IGNORE INTO payout_request (user) VALUES (?)";
+        const queryArgs = [userId];
+        await this.connection.execute(query, queryArgs);
+    }
+
+    /**
+     * @param {Nimiq.Address} addr
+     * @returns {Promise.<number>}
+     */
+    async getStoreUserId(addr) {
+        await this.connection.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
+        const [rows, fields] = await this.connection.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
+        return rows[0].id;
+    }
+
+    /**
+     * @param {PoolAgent} agent
+     */
+    removeAgent(agent) {
+        this._agents.delete(agent);
+    }
+
+    /**
+     * @type {Nimiq.FullConsensus}
+     * */
     get consensus() {
         return this._consensus;
     }
 }
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes
 PoolServer.UNBAN_IPS_INTERVAL = 1000 * 60; // 1 minute
+//TODO connection timeout!
+PoolServer.CONNECTION_TIMEOUT = 1000 * 60 * 5; // 3 min
 
 module.exports = exports = PoolServer;

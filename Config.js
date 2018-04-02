@@ -35,20 +35,22 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         port: -1,
         certPath: null,
         keyPath: null,
-        mysqlPsw: null
+        mySqlPsw: null,
+        mySqlHost: null
     },
     poolService: {
         enabled: false,
         poolAddress: null,
-        mySqlPsw: null
+        mySqlPsw: null,
+        mySqlHost: null
     },
     poolPayout: {
         enabled: false,
-        mySqlPsw: null
+        mySqlPsw: null,
+        mySqlHost: null
     },
     wallet: {
         seed: null,
-        address: null
     },
     log: {
         level: 'info',
@@ -67,7 +69,7 @@ const CONFIG_TYPES = {
         }
     },
     port: 'number',
-    dumb: 'boolean',
+    nano: 'boolean',
     type: {type: 'string', values: ['full', 'light', 'nano']},
     network: 'string',
     statistics: 'number',
@@ -79,26 +81,28 @@ const CONFIG_TYPES = {
             port: 'number',
             certPath: 'string',
             keyPath: 'string',
-            mySqlPsw: 'string'
+            mySqlPsw: 'string',
+            mySqlHost: 'string'
         }
     },
     poolService: {
         type: 'object', sub: {
             enabled: 'boolean',
             poolAddress: 'string',
-            mySqlPsw: 'string'
+            mySqlPsw: 'string',
+            mySqlHost: 'string'
         }
     },
     poolPayout: {
         type: 'object', sub: {
             enabled: 'boolean',
-            mySqlPsw: 'string'
+            mySqlPsw: 'string',
+            mySqlHost: 'string'
         }
     },
     wallet: {
         type: 'object', sub: {
             seed: 'string',
-            address: 'string'
         }
     },
     log: {

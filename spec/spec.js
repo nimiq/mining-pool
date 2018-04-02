@@ -35,9 +35,18 @@ Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS['tests']);
 
 beforeEach((done) => {
     (async () => {
-        let data = fs.readFileSync('drop.sql', 'utf8');
-        connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
-        await connection.query(data);
+        try {
+            let data = fs.readFileSync('drop.sql', 'utf8');
+            connection = await mysql.createConnection({
+                host: 'localhost',
+                user: 'root',
+                password: 'root',
+                multipleStatements: true
+            });
+            await connection.query(data);
+        } catch (e) {
+            console.log(e);
+        }
 
         data = fs.readFileSync('create.sql', 'utf8');
         connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
@@ -46,3 +55,5 @@ beforeEach((done) => {
         done();
     })().catch(done.fail);
 });
+
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 1200000;

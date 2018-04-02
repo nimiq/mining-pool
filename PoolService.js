@@ -6,18 +6,24 @@ const Helper = require('./Helper.js');
 
 class PoolService extends Nimiq.Observable {
     /**
-     * @param {Nimiq.FullConsensus} consensus
+     * @param {Nimiq.BaseConsensus} consensus
      * @param {Nimiq.Address} poolAddress
      * @param {string} mySqlPsw
      */
     constructor(consensus, poolAddress, mySqlPsw) {
         super();
+
+        /** @type {Nimiq.BaseConsensus} */
         this._consensus = consensus;
+
+        /** @type {Nimiq.Address} */
         this.poolAddress = poolAddress;
+
+        /** @type {string} */
         this.mySqlPsw = mySqlPsw;
 
-        /** @type {Map.<number, PoolAgent>} */
-        this._agents = new Map();
+        /** @type {Nimiq.Synchronizer} */
+        this._synchronizer = new Nimiq.Synchronizer();
     }
 
     async start() {
@@ -28,94 +34,73 @@ class PoolService extends Nimiq.Observable {
             database: 'nimpool'
         });
 
-        this._consensus.blockchain.on('head-changed', (head) => this._distributePayinsForBlock(head));
-        this._consensus.blockchain.on('block-reverted', (head) => this._removePayinsForBlock(head));
+        this.consensus.blockchain.on('head-changed', (head) => this._distributePayinsForBlock(head));
+        this.consensus.blockchain.on('head-changed', (head) => this._synchronizer.push(() => this._setBlockOnMainChain(head, head.height, true)));
+        this.consensus.blockchain.on('block-reverted', (head) => this._synchronizer.push(() => this._setBlockOnMainChain(head, head.height, false)));
     }
 
     /**
      * Reward type: Pay Per Last N Shares
-     * @param {Nimiq.Block} lastBlock
+     * @param {Nimiq.Block} block
      * @private
      */
-    async _distributePayinsForBlock(lastBlock) {
-        console.log('miner addr ' + lastBlock.minerAddr.toUserFriendlyAddress() + ' our ' + this.poolAddress.toUserFriendlyAddress());
-        if (lastBlock.minerAddr.equals(this.poolAddress)) {
-            const blockId = await this._getStoreBlockId(lastBlock.hash(), lastBlock.height);
-            const [addrDifficultySum, totalDifficultySum] = await this._summarizeShareDifficultiesPerUser(lastBlock);
-            let totalBlockReward = (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(lastBlock.height) + lastBlock.transactions.reduce((sum, tx) => sum + tx.fee, 0));
-            for (const addr of addrDifficultySum.keys()) {
-                const userReward = addrDifficultySum.get(addr) * totalBlockReward / totalDifficultySum;
+    async _distributePayinsForBlock(block) {
+        console.log('_miner addr ' + block.minerAddr.toUserFriendlyAddress() + ' our ' + this.poolAddress.toUserFriendlyAddress());
+        if (block.minerAddr.equals(this.poolAddress)) {
+            const blockId = await Helper.getStoreBlockId(this.connection, block.hash(), block.height);
+            const [addrDifficulty, totalDifficulty] = await this._getLastNShares(block, 1000);
+            let totalBlockReward = (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
+            for (const addr of addrDifficulty.keys()) {
+                const userReward = addrDifficulty.get(addr) * totalBlockReward / totalDifficulty;
                 await this._storePayin(addr, userReward, Date.now(), blockId);
             }
         }
     }
 
     /**
-     *
+     * @param {Array.<Nimiq.Hash>} prevHashes
+     * @param {number} n
+     * @returns {Promise.<Map.<Nimiq.Address,number>>}
+     */
+    /**
      * @param {Nimiq.Block} lastBlock
+     * @param {number} n
      * @returns {[Map.<Nimiq.Address,number>, number]}
      * @private
      */
-    async _summarizeShareDifficultiesPerUser(lastBlock) {
-        const addrDifficultySum = new Map();
-        let totalDifficultySum = 0;
-
-        let backUntilBlock = await this.consensus.blockchain.getBlock(lastBlock.prevHash);
-        while (backUntilBlock !== null && totalDifficultySum < lastBlock.difficulty) {
-            let prevHashes = [];
-            for (let i = 0; backUntilBlock !== null && i < 50; i++) {
-                let hash = backUntilBlock.hash();
-                prevHashes.push(hash);
-                backUntilBlock = await this.consensus.blockchain.getBlock(backUntilBlock.prevHash);
-            }
-            const addrDifficulty = await this._getLastXDifficulty(prevHashes, lastBlock.difficulty);
-            let totalDifficulty = 0;
-            for (const userAddress of addrDifficulty.keys()) {
-                totalDifficulty += addrDifficulty.get(userAddress);
-                if (addrDifficultySum.has(userAddress)) {
-                    addrDifficultySum.set(userAddress, addrDifficultySum.get(userAddress) + addrDifficulty.get(userAddress));
-                } else {
-                    addrDifficultySum.set(userAddress, addrDifficulty.get(userAddress));
-                }
-            }
-            totalDifficultySum += totalDifficulty;
-        }
-        return [addrDifficultySum, totalDifficultySum];
-    }
-
-    /**
-     * @param {Array.<Nimiq.Hash>} prevHashes
-     * @param {number} difficulty
-     * @returns {Promise.<Map.<Nimiq.Address,number>>}
-     */
-    async _getLastXDifficulty(prevHashes, difficulty) {
+    async _getLastNShares(lastBlock, n) {
         const ret = new Map();
-
-        let hashIds = await this._getBlockIds(prevHashes);
-        if (hashIds.length === 0) return ret;
         const query = `
-            SELECT last_x.user, SUM(last_x.difficulty) AS sum
-            FROM (
-                SELECT NULL AS user, NULL AS difficulty, NULL AS total
-                FROM dual
-                WHERE (@total := 0)
-                
-                UNION
-                
-                SELECT user, difficulty, @total := @total + difficulty AS total
-                FROM share
-                WHERE @total < ? AND prev_block IN (` + Array(hashIds.length).fill('?').join(', ') + `)
-            ) AS last_x
+            SELECT user, SUM(difficulty) AS difficulty_sum
+            FROM
+            (
+                SELECT *
+                FROM
+                (
+                    (
+                        SELECT user, difficulty, prev_block from share
+                    ) t1
+                    INNER JOIN
+                    (
+                        SELECT * from block
+                        WHERE main_chain=true AND height<=?
+                    ) t2
+                    ON t1.prev_block=t2.id
+                )
+                LIMIT ?
+            ) t3
             GROUP BY user
             `;
-        const queryArgs = [difficulty, ...hashIds];
+        const queryArgs = [lastBlock.height, n];
         const [rows, fields] = await this.connection.execute(query, queryArgs);
 
+        let totalDifficulty = 0;
         for (let row of rows) {
             const address = await Helper.getUser(this.connection, row.user);
-            ret.set(address, row.sum);
+            ret.set(address, row.difficulty_sum);
+            totalDifficulty += row.difficulty_sum;
         }
-        return ret;
+        return [ret, totalDifficulty];
     }
 
     /**
@@ -134,61 +119,22 @@ class PoolService extends Nimiq.Observable {
     }
 
     /**
-     *
-     * @param {Nimiq.Hash} blockHash
+     * @param {Nimiq.Block} block
      * @param {number} height
-     * @returns {Promise<number>}
+     * @param {boolean} onMainChain
      * @private
      */
-    async _getStoreBlockId(blockHash, height) {
-        await this.connection.execute("INSERT IGNORE INTO block (hash, height) VALUES (?, ?)", [blockHash.serialize(), height]);
-        return await this._getBlockId(blockHash);
-    }
-
-    /**
-     * @param {Nimiq.Hash} blockHash
-     * @returns {Promise<number>}
-     * @private
-     */
-    async _getBlockId(blockHash) {
-        const [rows, fields] = await this.connection.execute("SELECT id FROM block WHERE hash=?", [blockHash.serialize()]);
-        if (rows.length > 0) {
-            return rows[0].id;
-        } else {
-            return -1;
-        }
-    }
-
-    /**
-     * @param {Array.<Nimiq.Hash>} blockHashes
-     * @returns {Promise<Array.<number>>}
-     * @private
-     */
-    async _getBlockIds(blockHashes) {
-        const query = "SELECT id FROM block WHERE hash IN (" + Array(blockHashes.length).fill('?') + ")";
-        const queryArgs = [...blockHashes.map(h => h.serialize())];
-        const [rows, fields] = await this.connection.execute(query, queryArgs);
-
-        let ids = [];
-        for (let row of rows) {
-            ids.push(row.id);
-        }
-        return ids;
-    }
-
-    /**
-     * @param {Nimiq.Block} latestBlock
-     * @private
-     */
-    async _removePayinsForBlock(latestBlock) {
+    async _setBlockOnMainChain(block, height, onMainChain) {
         const query = `
-            DELETE FROM payin
-            WHERE block=?`;
-        const queryArgs = [ latestBlock.hash().serialize() ];
+            INSERT INTO block (hash, height, main_chain) VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE main_chain=?`;
+        const queryArgs = [ block.hash().serialize(), block.height, onMainChain, onMainChain ];
         await this.connection.execute(query, queryArgs);
     }
 
-    /** @type {Nimiq.FullConsensus} */
+    /**
+     * @type {Nimiq.BaseConsensus}
+     * */
     get consensus() {
         return this._consensus;
     }

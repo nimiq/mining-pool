@@ -6,38 +6,40 @@ const PoolConfig = require('./PoolConfig.js');
 
 class PoolPayout extends Nimiq.Observable {
     /**
-     * @param {Nimiq.FullConsensus} consensus
+     * @param {Nimiq.BaseConsensus} consensus
      * @param {Nimiq.Wallet} wallet
      * @param {string} mySqlPsw
      */
     constructor(consensus, wallet, mySqlPsw) {
         super();
+        /** @type {Nimiq.BaseConsensus} */
         this._consensus = consensus;
-        this._wallet = wallet;
-        this.mySqlPsq = mySqlPsw;
 
-        /** @type {Map.<number, PoolAgent>} */
-        this._agents = new Map();
+        /** @type {Nimiq.Wallet} */
+        this._wallet = wallet;
+
+        /** @type {string} */
+        this._mySqlPsq = mySqlPsw;
     }
 
     async start() {
         this.connection = await mysql.createConnection({
             host: 'localhost',
             user: 'nimpool_payout',
-            password: this.mySqlPsq,
+            password: this._mySqlPsq,
             database: 'nimpool'
         });
-        this.consensus.on('established', () => this.processPayouts());
+        this.consensus.on('established', () => this._processPayouts());
     }
 
-    async processPayouts() {
+    async _processPayouts() {
         const autoPayouts = await this._getAutoPayouts();
-        for (let user of autoPayouts.keys()) {
-            await this._payout(user, autoPayouts.get(user), false);
+        for (let userAddress of autoPayouts.keys()) {
+            await this._payout(userAddress, autoPayouts.get(userAddress), false);
         }
         const payoutRequests = await this._getPayoutRequests();
         for (let userId of payoutRequests) {
-            const balance = await Helper.getUserBalance(this.connection, userId, this._consensus.blockchain.height);
+            const balance = await Helper.getUserBalance(this.connection, userId, this.consensus.blockchain.height);
             const user = await Helper.getUser(this.connection, userId);
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
@@ -53,8 +55,8 @@ class PoolPayout extends Nimiq.Observable {
     async _payout(recipientAddress, amount, deductFees) {
         const txAmount = Math.floor(deductFees ? amount - PoolConfig.NETWORK_FEE : amount);
         if (txAmount > 0) {
-            console.log("PAYING " + txAmount / Nimiq.Policy.SATOSHIS_PER_COIN + " NIM to " + recipientAddress.toUserFriendlyAddress());
-            const tx = this._wallet.createTransaction(recipientAddress, txAmount, 137 * PoolConfig.NETWORK_FEE, this._consensus.blockchain.height);
+            Nimiq.Log.i(PoolPayout, "PAYING " + txAmount / Nimiq.Policy.SATOSHIS_PER_COIN + " NIM to " + recipientAddress.toUserFriendlyAddress());
+            const tx = this.wallet.createTransaction(recipientAddress, txAmount, 137 * PoolConfig.NETWORK_FEE, this.consensus.blockchain.height);
             await this._storePayout(recipientAddress, amount, Date.now(), tx.hash());
             this.consensus.mempool.pushTransaction(tx);
 
@@ -63,7 +65,7 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     /**
-     * @returns {Promise<Map.<Nimiq.Address,number>>}
+     * @returns {Promise.<Map.<Nimiq.Address,number>>}
      * @private
      */
     async _getAutoPayouts() {
@@ -71,16 +73,18 @@ class PoolPayout extends Nimiq.Observable {
             SELECT t1.user AS user, IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum
             FROM (
                 (
-                    SELECT user, SUM(amount) AS payin_sum
+                    SELECT user, block, SUM(amount) AS payin_sum
                     FROM (
                         (
                             SELECT user, block, amount
                             FROM payin
                         ) t3
-                        LEFT JOIN
+                        INNER JOIN
                         (
                             SELECT id, height
                             FROM block
+                            WHERE main_chain=true
+                            ORDER BY height DESC
                         ) t4
                         
                         ON t4.id = t3.block
@@ -110,7 +114,7 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     /**
-     * @returns {Promise<Array.<number>>}
+     * @returns {Promise.<Array.<number>>}
      * @private
      */
     async _getPayoutRequests() {
@@ -139,7 +143,7 @@ class PoolPayout extends Nimiq.Observable {
      * @param {number} amount
      * @param {number} datetime
      * @param {Nimiq.Hash} transactionHash
-     * @returns {Promise<void>}
+     * @returns {Promise.<void>}
      * @private
      */
     async _storePayout(recipientAddress, amount, datetime, transactionHash) {
@@ -148,12 +152,16 @@ class PoolPayout extends Nimiq.Observable {
         await this.connection.execute(query, queryArgs);
     }
 
-    /** @type {Nimiq.Wallet} */
+    /**
+     * @type {Nimiq.Wallet}
+     * */
     get wallet() {
         return this._wallet;
     }
 
-    /** @type {Nimiq.FullConsensus} */
+    /**
+     * @type {Nimiq.FullConsensus}
+     * */
     get consensus() {
         return this._consensus;
     }

@@ -7,7 +7,7 @@ class Helper {
      * @param {number} userId
      * @param {number} currChainHeight
      * @param {boolean} includeVirtual
-     * @returns {Promise<number>}
+     * @returns {Promise.<number>}
      * @private
      */
     static async getUserBalance(connection, userId, currChainHeight, includeVirtual = false) {
@@ -54,7 +54,7 @@ class Helper {
     /**
      * @param {mysql2.Connection} connection
      * @param id
-     * @returns {Promise<Nimiq.Address>}
+     * @returns {Promise.<Nimiq.Address>}
      */
     static async getUser(connection, id) {
         const [rows, fields] = await connection.execute("SELECT address FROM user WHERE id=?", [id]);
@@ -64,11 +64,38 @@ class Helper {
     /**
      * @param {mysql2.Connection}  connection
      * @param {Nimiq.Address} address
-     * @returns {Promise<number>}
+     * @returns {Promise.<number>}
      */
     static async getUserId(connection, address) {
         const [rows, fields] = await connection.execute("SELECT id FROM user WHERE address=?", [address.toBase64()]);
         return rows[0].id;
+    }
+
+    /**
+     * @param {mysql2.Connection}  connection
+     * @param {Nimiq.Hash} blockHash
+     * @param {number} height
+     * @returns {Promise.<number>}
+     * @private
+     */
+    static async getStoreBlockId(connection, blockHash, height) {
+        await connection.execute("INSERT IGNORE INTO block (hash, height) VALUES (?, ?)", [blockHash.serialize(), height]);
+        return await Helper.getBlockId(connection, blockHash);
+    }
+
+    /**
+     * @param {mysql2.Connection}  connection
+     * @param {Nimiq.Hash} blockHash
+     * @returns {Promise.<number>}
+     * @private
+     */
+    static async getBlockId(connection, blockHash) {
+        const [rows, fields] = await connection.execute("SELECT id FROM block WHERE hash=?", [blockHash.serialize()]);
+        if (rows.length > 0) {
+            return rows[0].id;
+        } else {
+            return -1;
+        }
     }
 }
 

@@ -2,7 +2,7 @@ const Nimiq = require('../core/dist/node.js');
 
 module.exports = {
     TARGET: Nimiq.Policy.BLOCK_TARGET_MAX,
-    CONFIRMATIONS: 120,
+    CONFIRMATIONS: 10,
     AUTO_PAY_OUT: Nimiq.Policy.SATOSHIS_PER_COIN,
     POOL_FEE: 0.01,
     NETWORK_FEE: 1,

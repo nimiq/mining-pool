@@ -10,9 +10,11 @@ const PoolPayout = require('./PoolPayout.js');
     const START = Date.now();
     const TAG = 'Node';
     const $ = {};
-    const isNano = config.type === 'nano';
+    if (!config) {
+        Nimiq.Log.w(TAG, 'Specify a valid config file with --config=FILE');
+    }
 
-    console.log(config);
+    const isNano = config.type === 'nano';
 
     Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS[config.network]);
 
@@ -20,7 +22,7 @@ const PoolPayout = require('./PoolPayout.js');
         Nimiq.GenesisConfig.SEED_PEERS.push(Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey));
     }
 
-    const networkConfig = config.dumb
+    const networkConfig = config.nano
         ? new Nimiq.DumbNetworkConfig()
         : new Nimiq.WsNetworkConfig(config.host, config.port, config.tls.key, config.tls.cert);
 
@@ -45,7 +47,7 @@ const PoolPayout = require('./PoolPayout.js');
 
     // TODO: Wallet key.
     $.walletStore = await new Nimiq.WalletStore();
-    if (!config.wallet.address && !config.wallet.seed) {
+    if (!config.wallet.seed) {
         // Load or create default wallet.
         $.wallet = await $.walletStore.getDefault();
     } else if (config.wallet.seed) {
@@ -54,19 +56,9 @@ const PoolPayout = require('./PoolPayout.js');
         await $.walletStore.put(mainWallet);
         await $.walletStore.setDefault(mainWallet.address);
         $.wallet = mainWallet;
-    } else {
-        const address = Nimiq.Address.fromUserFriendlyAddress(config.wallet.address);
-        $.wallet = {address: address};
-        // Check if we have a full wallet in store.
-        const wallet = await $.walletStore.get(address);
-        if (wallet) {
-            $.wallet = wallet;
-            await $.walletStore.setDefault(wallet.address);
-        }
     }
 
     if (config.poolServer.enabled) {
-        console.log(config.poolServer);
         const poolServer = new PoolServer($.consensus, config.poolServer.name, Nimiq.Address.fromUserFriendlyAddress(config.poolServer.poolAddress),
             config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
         process.on('SIGTERM', () => {
@@ -86,13 +78,13 @@ const PoolPayout = require('./PoolPayout.js');
     }
 
     const addresses = await $.walletStore.list();
-    console.log(`Managing wallets [${addresses.map(address => address.toUserFriendlyAddress())}]`);
+    Nimiq.Log.i(TAG, `Managing wallets [${addresses.map(address => address.toUserFriendlyAddress())}]`);
 
     const account = !isNano ? await $.accounts.get($.wallet.address) : null;
-    console.log(`Wallet initialized for address ${$.wallet.address.toUserFriendlyAddress()}.`
+    Nimiq.Log.i(TAG, `Wallet initialized for address ${$.wallet.address.toUserFriendlyAddress()}.`
         + (!isNano ? ` Balance: ${Nimiq.Policy.satoshisToCoins(account.balance)} NIM` : ''));
 
-    console.log(`Blockchain state: height=${$.blockchain.height}, headHash=${$.blockchain.headHash}`);
+    Nimiq.Log.i(TAG, `Blockchain state: height=${$.blockchain.height}, headHash=${$.blockchain.headHash}`);
 
     $.blockchain.on('head-changed', (head) => {
         if ($.consensus.established || head.height % 100 === 0) {
