@@ -69,7 +69,7 @@ const CONFIG_TYPES = {
         }
     },
     port: 'number',
-    nano: 'boolean',
+    dumb: 'boolean',
     type: {type: 'string', values: ['full', 'light', 'nano']},
     network: 'string',
     statistics: 'number',

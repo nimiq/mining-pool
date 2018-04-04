@@ -144,13 +144,18 @@ class PoolAgent {
         const block = lightBlock.toFull(this._currentBody);
         const hash = block.hash();
 
+        // Check if the share was already submitted
+        if (await this._pool.containsShare(this._userId, hash)) {
+            throw new Error('Client submitted share twice');
+        }
+
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason !== null) {
             this._send({
                 message: PoolAgent.MESSAGE_INVALID_SHARE,
                 reason: invalidReason
             });
-            throw new Error('Client sent invalid share');
+            return;
         }
 
         const nextTarget = await this._pool.consensus.blockchain.getNextTarget(await this._pool.consensus.blockchain.getBlock(block.prevHash));
@@ -168,11 +173,6 @@ class PoolAgent {
      * @private
      */
     async _isNanoShareValid(block, hash) {
-        // Check if the share was already submitted
-        if (await this._pool.containsShare(this._userId, hash)) {
-            return 'already sent';
-        }
-
         // Check if the body hash is the one we've sent
         if (!block.header.bodyHash.equals(this._currentBody.hash())) {
             return 'wrong body hash';

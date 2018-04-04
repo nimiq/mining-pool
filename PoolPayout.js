@@ -10,7 +10,7 @@ class PoolPayout extends Nimiq.Observable {
      * @param {Nimiq.Wallet} wallet
      * @param {string} mySqlPsw
      */
-    constructor(consensus, wallet, mySqlPsw) {
+    constructor(consensus, wallet, mySqlPsw, mySqlHost) {
         super();
         /** @type {Nimiq.BaseConsensus} */
         this._consensus = consensus;
@@ -20,11 +20,14 @@ class PoolPayout extends Nimiq.Observable {
 
         /** @type {string} */
         this._mySqlPsq = mySqlPsw;
+
+        /** @type {string} */
+        this._mySqlHost = _mySqlHost;
     }
 
     async start() {
         this.connection = await mysql.createConnection({
-            host: 'localhost',
+            host: this._mySqlHost,
             user: 'nimpool_payout',
             password: this._mySqlPsq,
             database: 'nimpool'

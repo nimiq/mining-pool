@@ -22,7 +22,7 @@ const PoolPayout = require('./PoolPayout.js');
         Nimiq.GenesisConfig.SEED_PEERS.push(Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey));
     }
 
-    const networkConfig = config.nano
+    const networkConfig = config.dumb
         ? new Nimiq.DumbNetworkConfig()
         : new Nimiq.WsNetworkConfig(config.host, config.port, config.tls.key, config.tls.cert);
 
@@ -60,7 +60,7 @@ const PoolPayout = require('./PoolPayout.js');
 
     if (config.poolServer.enabled) {
         const poolServer = new PoolServer($.consensus, config.poolServer.name, Nimiq.Address.fromUserFriendlyAddress(config.poolServer.poolAddress),
-            config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
+            config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
         process.on('SIGTERM', () => {
             poolServer.stop();
             process.exit(0);
@@ -70,10 +70,10 @@ const PoolPayout = require('./PoolPayout.js');
             process.exit(0);
         });
     } else if (config.poolService.enabled) {
-        const poolService = new PoolService($.consensus, Nimiq.Address.fromUserFriendlyAddress(config.poolService.poolAddress), config.poolService.mySqlPsw);
+        const poolService = new PoolService($.consensus, Nimiq.Address.fromUserFriendlyAddress(config.poolService.poolAddress), config.poolService.mySqlPsw, config.poolService.mySqlHost);
         poolService.start();
     } else if (config.poolPayout.enabled) {
-        const poolPayout = new PoolPayout($.consensus, $.wallet, config.poolPayout.mySqlPsw);
+        const poolPayout = new PoolPayout($.consensus, $.wallet, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
         poolPayout.start();
     }
 

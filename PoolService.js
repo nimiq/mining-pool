@@ -10,7 +10,7 @@ class PoolService extends Nimiq.Observable {
      * @param {Nimiq.Address} poolAddress
      * @param {string} mySqlPsw
      */
-    constructor(consensus, poolAddress, mySqlPsw) {
+    constructor(consensus, poolAddress, mySqlPsw, mySqlHost) {
         super();
 
         /** @type {Nimiq.BaseConsensus} */
@@ -20,7 +20,10 @@ class PoolService extends Nimiq.Observable {
         this.poolAddress = poolAddress;
 
         /** @type {string} */
-        this.mySqlPsw = mySqlPsw;
+        this._mySqlPsw = mySqlPsw;
+
+        /** @type {string} */
+        this._mySqlHost = mySqlHost;
 
         /** @type {Nimiq.Synchronizer} */
         this._synchronizer = new Nimiq.Synchronizer();
@@ -28,9 +31,9 @@ class PoolService extends Nimiq.Observable {
 
     async start() {
         this.connection = await mysql.createConnection({
-            host: 'localhost',
+            host: this._mySqlHost,
             user: 'nimpool_service',
-            password: this.mySqlPsw,
+            password: this._mySqlPsw,
             database: 'nimpool'
         });
 

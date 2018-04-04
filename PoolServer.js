@@ -17,7 +17,7 @@ class PoolServer extends Nimiq.Observable {
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
      */
-    constructor(consensus, name, poolAddress, port, mySqlPsw, sslKeyPath, sslCertPath) {
+    constructor(consensus, name, poolAddress, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath) {
         super();
 
         /** @type {Nimiq.FullConsensus} */
@@ -33,13 +33,16 @@ class PoolServer extends Nimiq.Observable {
         this.port = port;
 
         /** @type {string} */
-        this.mySqlPsw = mySqlPsw;
+        this._mySqlPsw = mySqlPsw;
 
         /** @type {string} */
-        this.sslKeyPath = sslKeyPath;
+        this._mySqlHost = mySqlHost;
 
         /** @type {string} */
-        this.sslCertPath = sslCertPath;
+        this._sslKeyPath = sslKeyPath;
+
+        /** @type {string} */
+        this._sslCertPath = sslCertPath;
 
         /** @type {Nimiq.Miner} */
         this._miner = new Nimiq.Miner(consensus.blockchain, consensus.blockchain.accounts, consensus.mempool, consensus.network.time, poolAddress);
@@ -63,13 +66,13 @@ class PoolServer extends Nimiq.Observable {
         await this._updateTransactions();
 
         this.connection = await mysql.createConnection({
-            host: 'localhost',
+            host: this._mySqlHost,
             user: 'nimpool_server',
-            password: this.mySqlPsw,
+            password: this._mySqlPsw,
             database: 'nimpool'
         });
 
-        this._wss = PoolServer.createServer(this.port, this.sslKeyPath, this.sslCertPath);
+        this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath);
         this._wss.on('connection', ws => this._onConnection(ws));
 
         this._consensus.blockchain.on('head-changed', (head) => this._announceHeadToNano(head));
