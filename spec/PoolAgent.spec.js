@@ -20,6 +20,7 @@ describe('PoolAgent', () => {
         const nonces = {
             's4Xy6xUCf/WegBZhQTUdN5zq1knUpXLMyqDMyuaGsjU=': 225614,
             '4ulvVBd/xJU1VdbQo2nzkPZVrBErxIYDNMHLLj51KPQ=': 12188,
+            '/Txmmo6uRktXSQCQ8P5OqDXo3iXdDmb4LZ7veHotXq8=': 28027
         };
         const accounts = await Nimiq.Accounts.createVolatile();
         const transactionStore = await Nimiq.TransactionStore.createVolatile();
@@ -28,7 +29,7 @@ describe('PoolAgent', () => {
         const miner = new Nimiq.Miner(blockchain, accounts, mempool, fixTime, minerAddr, extraData);
         const block = await miner.getNextBlock();
         const blockHeader64 = block.header.hash().toBase64();
-        console.log(blockHeader64);
+        // console.log(blockHeader64);
         // miner.shareTarget = target;
         // miner.on('share', async (block) => {
         //     console.log(block);
@@ -44,7 +45,7 @@ describe('PoolAgent', () => {
         };
     }
 
-    it('verifies shares', (done) => {
+    it('verifies shares (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
             const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '');
@@ -61,25 +62,24 @@ describe('PoolAgent', () => {
                     const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
                     const target = parseFloat(msg.target);
 
+                    let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
+
                     // valid share
                     let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
                     await poolAgent._onMessage(shareMsg);
                     let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
                     expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
 
                     // wrong miner address
                     shareMsg = await generateBlockMessage(Nimiq.Address.fromUserFriendlyAddress('NQ57 LUAL 6R8F ETD3 VE77 6NK5 HEUK 009H C06B'), extraData, time, target);
                     await poolAgent._onMessageData(JSON.stringify(shareMsg));
                     hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    userId = await poolServer.getStoreUserId(NQ43sampleData.address);
                     expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
 
                     // wrong extra data
                     shareMsg = await generateBlockMessage(poolAddress, Nimiq.BufferUtils.fromAscii('wrong'), time, target);
                     await poolAgent._onMessageData(JSON.stringify(shareMsg));
                     hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    userId = await poolServer.getStoreUserId(NQ43sampleData.address);
                     expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
 
                     done();
@@ -89,33 +89,48 @@ describe('PoolAgent', () => {
         })().catch(done.fail);
     });
 
-    xit('does not count shares onto old blocks', (done) => {
+    it('does not count shares onto old blocks (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
             const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '');
             await poolServer.start();
-            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
+            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: (msg) => { on_msg(msg); }, _socket: { remoteAddress: '1.2.3.4' } });
+
+            let fixFakeTime = 0;
+            const time = new Nimiq.Time();
+            spyOn(time, 'now').and.callFake(() => fixFakeTime);
+
+            spyOn(poolAgent, '_send').and.callFake(async (msg) => {
+                if (msg.message === 'settings') {
+                    const poolAddress = Nimiq.Address.fromUserFriendlyAddress(msg.address);
+                    const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
+                    const target = parseFloat(msg.target);
+
+                    let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
+
+                    // valid share
+                    let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
+                    await poolAgent._onMessage(shareMsg);
+                    let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                    expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
+
+                    fixFakeTime = 2000;
+                    shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
+                    await poolAgent._onMessage(shareMsg);
+                    hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                    expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
+
+                    done();
+                }
+            });
             await poolAgent._onMessage(NQ43sampleData.register);
-            const userId = await poolServer.getStoreUserId(NQ43sampleData.address);
-
-            await poolAgent._onMessage(NQ43sampleData.validShare_1);
-            let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(NQ43sampleData.validShare_1.blockHeader)).hash();
-            expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
-
-            await consensus.blockchain.pushBlock(ChainSampleData.block1);
-
-            await poolAgent._onMessage(NQ43sampleData.validShare_2);
-            hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(NQ43sampleData.validShare_2.blockHeader)).hash();
-            expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
-
-            done();
         })().catch(done.fail);
     });
 
     it('handles balance requests', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '');
+            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '', '');
             await poolServer.start();
             const poolAgent = new PoolAgent(poolServer, {
                 close: () => {},
@@ -141,13 +156,13 @@ describe('PoolAgent', () => {
         })().catch(done.fail);
     });
 
-    xit('handles payout requests', (done) => {
+    it('handles payout requests', (done) => {
         (async () => {
             const keyPair = Nimiq.KeyPair.generate();
             const clientAddress = keyPair.publicKey.toAddress();
 
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '');
+            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', 'localhost', '', '');
             await poolServer.start();
             const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
             spyOn(poolAgent, '_regenerateNonce').and.callFake(() => { poolAgent._nonce = 42 });
@@ -180,7 +195,7 @@ describe('PoolAgent', () => {
             // invalid signature
             signatureProof = await sendSignedPayoutRequest(Nimiq.KeyPair.generate());
             request = { message: 'payout', proof: Nimiq.BufferUtils.toBase64(signatureProof.serialize()) };
-            await poolAgent._onMessage(request);
+            await poolAgent._onMessageData(JSON.stringify(request));
 
             userId = await poolServer.getStoreUserId(clientAddress);
             [rows, fields] = await connection.execute('SELECT * FROM payout_request WHERE user=?', [userId]);

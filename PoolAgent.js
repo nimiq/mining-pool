@@ -312,8 +312,6 @@ class PoolAgent {
      * @private
      */
     async _verifyProof(msgProof, prefix) {
-        console.log(msgProof);
-        console.log(prefix);
         const proof = Nimiq.SignatureProof.unserialize(msgProof);
         const buf = new Nimiq.SerialBuffer(8 + prefix.length);
         buf.writeString(prefix, prefix.length);

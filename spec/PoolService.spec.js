@@ -9,22 +9,26 @@ const PoolService = require('../PoolService.js');
 
 describe('PoolService', () => {
 
+    beforeEach(() => {
+        spyOn(PoolServer, 'createServer').and.callFake(() => {
+            return {
+                on: () => {},
+                close: () => {}
+            };
+        });
+    });
+
     it('computes payins', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999);
+            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '', '');
             await poolServer.start();
 
             let poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
             await poolAgent._onRegisterMessage(NQ25sampleData.register);
-            await poolAgent._onMessage(NQ25sampleData.validShare_1);
-            await poolAgent._onMessage(NQ25sampleData.validShare_2);
-            await poolAgent._onMessage(NQ25sampleData.validShare_3);
 
             poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
             await poolAgent._onRegisterMessage(NQ43sampleData.register);
-            await poolAgent._onMessage(NQ43sampleData.validShare_1);
-            await poolAgent._onMessage(NQ43sampleData.validShare_2);
 
             const poolService = new PoolService(consensus, POOL_ADDRESS);
             await poolService.start();

@@ -14,6 +14,7 @@ class PoolServer extends Nimiq.Observable {
      * @param {Nimiq.Address} poolAddress
      * @param {number} port
      * @param {string} mySqlPsw
+     * @param {string} mySqlHost
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
      */
