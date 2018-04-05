@@ -1,5 +1,5 @@
 const Nimiq = require('../core/dist/node.js');
-const Config = require('./Config.js');
+const PoolConfig = require('./PoolConfig.js');
 
 class Helper {
     /**
@@ -8,7 +8,6 @@ class Helper {
      * @param {number} currChainHeight
      * @param {boolean} includeVirtual
      * @returns {Promise.<number>}
-     * @private
      */
     static async getUserBalance(connection, userId, currChainHeight, includeVirtual = false) {
         const query = `
@@ -42,7 +41,7 @@ class Helper {
             ON t1.user = t2.user
         )
         `;
-        const queryHeight = includeVirtual ? currChainHeight : currChainHeight - Config.CONFIRMATIONS;
+        const queryHeight = includeVirtual ? currChainHeight : currChainHeight - PoolConfig.CONFIRMATIONS;
         const queryArgs = [userId, queryHeight, userId];
         const [rows, fields] = await connection.execute(query, queryArgs);
         if (rows.length === 1) {
@@ -76,7 +75,6 @@ class Helper {
      * @param {Nimiq.Hash} blockHash
      * @param {number} height
      * @returns {Promise.<number>}
-     * @private
      */
     static async getStoreBlockId(connection, blockHash, height) {
         await connection.execute("INSERT IGNORE INTO block (hash, height) VALUES (?, ?)", [blockHash.serialize(), height]);
@@ -87,7 +85,6 @@ class Helper {
      * @param {mysql2.Connection}  connection
      * @param {Nimiq.Hash} blockHash
      * @returns {Promise.<number>}
-     * @private
      */
     static async getBlockId(connection, blockHash) {
         const [rows, fields] = await connection.execute("SELECT id FROM block WHERE hash=?", [blockHash.serialize()]);

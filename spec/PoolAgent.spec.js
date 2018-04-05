@@ -129,6 +129,11 @@ describe('PoolAgent', () => {
 
     it('handles balance requests', (done) => {
         (async () => {
+            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
+            await connection.execute('INSERT INTO payin (user, amount, datetime, block) VALUES (?, ?, ?, ?)', [1, 5, Date.now(), 1]);
+            await connection.execute('INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)', [1, 2, Date.now(), 'lkghdjdf']);
+            await connection.execute('INSERT INTO block (id, hash, height) VALUES (?, ?, ?)', ['1', 'lsdjf', 0]);
+
             const consensus = await Nimiq.Consensus.volatileFull();
             const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '', '');
             await poolServer.start();
@@ -136,23 +141,14 @@ describe('PoolAgent', () => {
                 close: () => {},
                 send: (m) => {
                     msg = JSON.parse(m);
-                    if (msg.message === PoolAgent.MESSAGE_BALANCE_RESPONSE) {
-                        expect(msg.balance).toEqual(0);
-                        expect(msg.virtualBalance).toEqual(3);
-                        done();
+                    if (msg.message === PoolAgent.MESSAGE_BALANCE) {
+                        expect(msg.balance).toEqual(3);
+                        expect(msg.confirmedBalance).toEqual(0);
                     }
                 },
                 _socket: { remoteAddress: '1.2.3.4' }
             });
             await poolAgent._onMessage(NQ25sampleData.register);
-            const userId = await poolServer.getStoreUserId(NQ25sampleData.address);
-
-            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
-            await connection.execute('INSERT INTO payin (user, amount, datetime, block) VALUES (?, ?, ?, ?)', [userId, 5, Date.now(), 1]);
-            await connection.execute('INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)', [userId, 2, Date.now(), 'lkghdjdf']);
-            await connection.execute('INSERT INTO block (id, hash, height) VALUES (?, ?, ?)', ['1', 'lsdjf', 0]);
-
-            await poolAgent._onMessage({ message: 'balance-request' });
         })().catch(done.fail);
     });
 

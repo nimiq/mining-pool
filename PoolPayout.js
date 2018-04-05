@@ -22,7 +22,7 @@ class PoolPayout extends Nimiq.Observable {
         this._mySqlPsq = mySqlPsw;
 
         /** @type {string} */
-        this._mySqlHost = _mySqlHost;
+        this._mySqlHost = mySqlHost;
     }
 
     async start() {

@@ -48,6 +48,17 @@ class PoolAgent {
         });
     }
 
+    async sendBalance() {
+        console.log(await this._pool.getUserBalance(this._userId));
+        console.log(await this._pool.getUserBalance(this._userId, true));
+        this._send({
+            message: PoolAgent.MESSAGE_BALANCE,
+            balance: Math.floor(await this._pool.getUserBalance(this._userId, true)),
+            confirmedBalance: Math.floor(await this._pool.getUserBalance(this._userId)),
+            payoutRequestActive: await this._pool.hasPayoutRequest(this._userId)
+        });
+    }
+
     /**
      * @param {string} data
      * @private
@@ -97,7 +108,7 @@ class PoolAgent {
                 await this._onPayoutMessage(msg);
                 break;
             }
-            case PoolAgent.MESSAGE_BALANCE_REQUEST: {
+            case PoolAgent.MESSAGE_BALANCE: {
                 await this._onBalanceRequest(msg);
                 break;
             }
@@ -132,6 +143,8 @@ class PoolAgent {
         if (this.mode === 'nano') {
             this._pool.requestCurrentHead(this);
         }
+        await this.sendBalance();
+        this._sendBalanceInterval = setInterval(() => this.sendBalance(), 1000 * 60 * 1);
         console.log("REGISTER " + this._address.toUserFriendlyAddress() + " current balance: " + await this._pool.getUserBalance(this._userId));
     }
 
@@ -294,18 +307,6 @@ class PoolAgent {
     }
 
     /**
-     * @param {Object} msg
-     * @private
-     */
-    async _onBalanceRequest(msg) {
-        this._send({
-            message: PoolAgent.MESSAGE_BALANCE_RESPONSE,
-            balance: await this._pool.getUserBalance(this._userId),
-            virtualBalance: await this._pool.getUserBalance(this._userId, true)
-        });
-    }
-
-    /**
      * @param {Nimiq.SerialBuffer} msgProof
      * @param {string} prefix
      * @returns {Promise.<boolean>}
@@ -377,6 +378,7 @@ class PoolAgent {
     }
 
     _onClose() {
+        clearInterval(this._sendBalanceInterval);
         clearTimeout(this._timeout);
         this._pool.removeAgent(this);
     }
@@ -391,8 +393,7 @@ PoolAgent.MESSAGE_REGISTER = 'register';
 PoolAgent.MESSAGE_PAYOUT = 'payout';
 PoolAgent.MESSAGE_SHARE = 'share';
 PoolAgent.MESSAGE_SETTINGS = 'settings';
-PoolAgent.MESSAGE_BALANCE_REQUEST = 'balance-request';
-PoolAgent.MESSAGE_BALANCE_RESPONSE = 'balance-response';
+PoolAgent.MESSAGE_BALANCE = 'balance';
 PoolAgent.MESSAGE_NEW_BLOCK = 'new-block';
 
 PoolAgent.MODE_NANO = 'nano';

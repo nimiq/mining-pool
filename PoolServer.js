@@ -252,6 +252,16 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
+     * @param {number} userId
+     * @returns {Promise.<boolean>}
+     */
+    async hasPayoutRequest(userId) {
+        const query = `SELECT * from payout_request WHERE user=?`;
+        const [rows, fields] = await this.connection.execute(query, [userId]);
+        return rows.length > 0;
+    }
+
+    /**
      * @param {Nimiq.Address} addr
      * @returns {Promise.<number>}
      */
