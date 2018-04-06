@@ -141,6 +141,9 @@ class PoolAgent {
         this._regenerateExtraData();
 
         this._registered = true;
+        this._send({
+            message: PoolAgent.MESSAGE_REGISTERED
+        });
 
         this._sendSettings();
         if (this.mode === 'nano') {
@@ -392,6 +395,7 @@ class PoolAgent {
     }
 }
 PoolAgent.MESSAGE_REGISTER = 'register';
+PoolAgent.MESSAGE_REGISTERED = 'registered';
 PoolAgent.MESSAGE_PAYOUT = 'payout';
 PoolAgent.MESSAGE_SHARE = 'share';
 PoolAgent.MESSAGE_SETTINGS = 'settings';
