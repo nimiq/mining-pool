@@ -9,6 +9,7 @@ class PoolService extends Nimiq.Observable {
      * @param {Nimiq.BaseConsensus} consensus
      * @param {Nimiq.Address} poolAddress
      * @param {string} mySqlPsw
+     * @param {string} mySqlHost
      */
     constructor(consensus, poolAddress, mySqlPsw, mySqlHost) {
         super();
@@ -90,6 +91,7 @@ class PoolService extends Nimiq.Observable {
                     ) t2
                     ON t1.prev_block=t2.id
                 )
+                ORDER BY height DESC
                 LIMIT ?
             ) t3
             GROUP BY user

@@ -49,8 +49,6 @@ class PoolAgent {
     }
 
     async sendBalance() {
-        console.log(await this._pool.getUserBalance(this._userId));
-        console.log(await this._pool.getUserBalance(this._userId, true));
         this._send({
             message: PoolAgent.MESSAGE_BALANCE,
             balance: Math.floor(await this._pool.getUserBalance(this._userId, true)),
@@ -108,10 +106,6 @@ class PoolAgent {
                 await this._onPayoutMessage(msg);
                 break;
             }
-            case PoolAgent.MESSAGE_BALANCE: {
-                await this._onBalanceRequest(msg);
-                break;
-            }
         }
     }
 
@@ -128,6 +122,15 @@ class PoolAgent {
             this.mode = PoolAgent.MODE_NANO;
         } else {
             throw new Error('Client did not specify mode');
+        }
+
+        const genesisHash = Nimiq.Hash.unserialize(Nimiq.BufferUtils.fromBase64(msg.genesisHash));
+        if (!genesisHash.equals(Nimiq.GenesisConfig.GENESIS_HASH)) {
+            this._send({
+                message: PoolAgent.MESSAGE_ERROR,
+                reason: 'different genesis block'
+            });
+            throw new Error('Client had different genesis block');
         }
 
         this._sharesSinceReset = 0;
@@ -165,8 +168,8 @@ class PoolAgent {
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason !== null) {
             this._send({
-                message: PoolAgent.MESSAGE_INVALID_SHARE,
-                reason: invalidReason
+                message: PoolAgent.ERROR,
+                reason: 'invalid share ' + invalidReason
             });
             return;
         }
@@ -231,8 +234,8 @@ class PoolAgent {
         const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof);
         if (invalidReason !== null) {
             this._send({
-                message: PoolAgent.MESSAGE_INVALID_SHARE,
-                reason: invalidReason
+                message: PoolAgent.ERROR,
+                reason: 'invalid share ' + invalidReason
             });
             throw new Error('Client sent invalid share');
         }
@@ -243,7 +246,7 @@ class PoolAgent {
             const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(block, true);
             if (successors.length > 0) {
                 this._send({
-                    message: PoolAgent.MESSAGE_INVALID_SHARE,
+                    message: PoolAgent.ERROR,
                     reason: 'too old'
                 });
                 return;
@@ -388,13 +391,13 @@ class PoolAgent {
         this._ws.close();
     }
 }
-PoolAgent.MESSAGE_INVALID_SHARE = 'invalid-share';
 PoolAgent.MESSAGE_REGISTER = 'register';
 PoolAgent.MESSAGE_PAYOUT = 'payout';
 PoolAgent.MESSAGE_SHARE = 'share';
 PoolAgent.MESSAGE_SETTINGS = 'settings';
 PoolAgent.MESSAGE_BALANCE = 'balance';
 PoolAgent.MESSAGE_NEW_BLOCK = 'new-block';
+PoolAgent.MESSAGE_ERROR = 'error';
 
 PoolAgent.MODE_NANO = 'nano';
 PoolAgent.MODE_SMART = 'smart';
