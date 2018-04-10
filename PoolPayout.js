@@ -26,7 +26,7 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     async start() {
-        this.connection = await mysql.createConnection({
+        this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
             user: 'nimpool_payout',
             password: this._mySqlPsq,
@@ -42,8 +42,8 @@ class PoolPayout extends Nimiq.Observable {
         }
         const payoutRequests = await this._getPayoutRequests();
         for (let userId of payoutRequests) {
-            const balance = await Helper.getUserBalance(this.connection, userId, this.consensus.blockchain.height);
-            const user = await Helper.getUser(this.connection, userId);
+            const balance = await Helper.getUserBalance(this.connectionPool, userId, this.consensus.blockchain.height);
+            const user = await Helper.getUser(this.connectionPool, userId);
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
         }
@@ -107,11 +107,11 @@ class PoolPayout extends Nimiq.Observable {
             WHERE payin_sum - IFNULL(payout_sum, 0) > ?
         `;
         const queryArgs = [this._consensus.blockchain.height - PoolConfig.CONFIRMATIONS, PoolConfig.AUTO_PAY_OUT];
-        const [rows, fields] = await this.connection.execute(query, queryArgs);
+        const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         const ret = new Map();
         for (let row of rows) {
-            ret.set(await Helper.getUser(this.connection, row.user), row.payin_sum - row.payout_sum);
+            ret.set(await Helper.getUser(this.connectionPool, row.user), row.payin_sum - row.payout_sum);
         }
         return ret;
     }
@@ -122,7 +122,7 @@ class PoolPayout extends Nimiq.Observable {
      */
     async _getPayoutRequests() {
         const query = `SELECT * from payout_request`;
-        const [rows, fields] = await this.connection.execute(query);
+        const [rows, fields] = await this.connectionPool.execute(query);
 
         let ret = [];
         for (let row of rows) {
@@ -138,7 +138,7 @@ class PoolPayout extends Nimiq.Observable {
     async _removePayoutRequest(userId) {
         const query = `DELETE FROM payout_request WHERE user=?`;
         const queryArgs = [userId];
-        await this.connection.execute(query, queryArgs);
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**
@@ -151,8 +151,8 @@ class PoolPayout extends Nimiq.Observable {
      */
     async _storePayout(recipientAddress, amount, datetime, transactionHash) {
         const query = "INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)";
-        const queryArgs = [await Helper.getUserId(this.connection, recipientAddress), amount, datetime, transactionHash.serialize()];
-        await this.connection.execute(query, queryArgs);
+        const queryArgs = [await Helper.getUserId(this.connectionPool, recipientAddress), amount, datetime, transactionHash.serialize()];
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**

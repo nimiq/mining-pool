@@ -31,7 +31,7 @@ class PoolService extends Nimiq.Observable {
     }
 
     async start() {
-        this.connection = await mysql.createConnection({
+        this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
             user: 'nimpool_service',
             password: this._mySqlPsw,
@@ -51,7 +51,7 @@ class PoolService extends Nimiq.Observable {
     async _distributePayinsForBlock(block) {
         console.log('_miner addr ' + block.minerAddr.toUserFriendlyAddress() + ' our ' + this.poolAddress.toUserFriendlyAddress());
         if (block.minerAddr.equals(this.poolAddress)) {
-            const blockId = await Helper.getStoreBlockId(this.connection, block.hash(), block.height);
+            const blockId = await Helper.getStoreBlockId(this.connectionPool, block.hash(), block.height);
             const [addrDifficulty, totalDifficulty] = await this._getLastNShares(block, 1000);
             let totalBlockReward = (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
             for (const addr of addrDifficulty.keys()) {
@@ -97,11 +97,11 @@ class PoolService extends Nimiq.Observable {
             GROUP BY user
             `;
         const queryArgs = [lastBlock.height, n];
-        const [rows, fields] = await this.connection.execute(query, queryArgs);
+        const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         let totalDifficulty = 0;
         for (let row of rows) {
-            const address = await Helper.getUser(this.connection, row.user);
+            const address = await Helper.getUser(this.connectionPool, row.user);
             ret.set(address, row.difficulty_sum);
             totalDifficulty += row.difficulty_sum;
         }
@@ -116,11 +116,11 @@ class PoolService extends Nimiq.Observable {
      * @private
      */
     async _storePayin(userAddress, amount, datetime, blockId) {
-        const userId = await Helper.getUserId(this.connection, userAddress);
+        const userId = await Helper.getUserId(this.connectionPool, userAddress);
 
         const query = "INSERT INTO payin (user, amount, datetime, block) VALUES (?, ?, ?, ?)";
         const queryArgs = [userId, amount, datetime, blockId];
-        await this.connection.execute(query, queryArgs);
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**
@@ -134,7 +134,7 @@ class PoolService extends Nimiq.Observable {
             INSERT INTO block (hash, height, main_chain) VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE main_chain=?`;
         const queryArgs = [ block.hash().serialize(), block.height, onMainChain, onMainChain ];
-        await this.connection.execute(query, queryArgs);
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**

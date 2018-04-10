@@ -66,7 +66,7 @@ class PoolServer extends Nimiq.Observable {
         this._currentLightHead = this.consensus.blockchain.head.toLight();
         await this._updateTransactions();
 
-        this.connection = await mysql.createConnection({
+        this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
             user: 'nimpool_server',
             password: this._mySqlPsw,
@@ -215,10 +215,10 @@ class PoolServer extends Nimiq.Observable {
      * @param {Nimiq.Hash} shareHash
      */
     async storeShare(userId, deviceId, prevHash, prevHashHeight, difficulty, shareHash) {
-        let prevHashId = await Helper.getStoreBlockId(this.connection, prevHash, prevHashHeight);
+        let prevHashId = await Helper.getStoreBlockId(this.connectionPool, prevHash, prevHashHeight);
         const query = "INSERT INTO share (user, device, prev_block, difficulty, hash) VALUES (?, ?, ?, ?, ?)";
         const queryArgs = [userId, deviceId, prevHashId, difficulty, shareHash.serialize()];
-        await this.connection.execute(query, queryArgs);
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**
@@ -229,7 +229,7 @@ class PoolServer extends Nimiq.Observable {
     async containsShare(user, shareHash) {
         const query = "SELECT * from share WHERE user=? and hash=?";
         const queryArgs = [user, shareHash.serialize()];
-        const [rows, fields] = await this.connection.execute(query, queryArgs);
+        const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
         return rows.length > 0;
     }
 
@@ -239,7 +239,7 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise<number>}
      */
     async getUserBalance(userId, includeVirtual = false) {
-        return await Helper.getUserBalance(this.connection, userId, this._consensus.blockchain.height, includeVirtual);
+        return await Helper.getUserBalance(this.connectionPool, userId, this._consensus.blockchain.height, includeVirtual);
     }
 
     /**
@@ -248,7 +248,7 @@ class PoolServer extends Nimiq.Observable {
     async storePayoutRequest(userId) {
         const query = "INSERT IGNORE INTO payout_request (user) VALUES (?)";
         const queryArgs = [userId];
-        await this.connection.execute(query, queryArgs);
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**
@@ -257,7 +257,7 @@ class PoolServer extends Nimiq.Observable {
      */
     async hasPayoutRequest(userId) {
         const query = `SELECT * from payout_request WHERE user=?`;
-        const [rows, fields] = await this.connection.execute(query, [userId]);
+        const [rows, fields] = await this.connectionPool.execute(query, [userId]);
         return rows.length > 0;
     }
 
@@ -266,8 +266,8 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise.<number>}
      */
     async getStoreUserId(addr) {
-        await this.connection.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
-        const [rows, fields] = await this.connection.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
+        await this.connectionPool.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
+        const [rows, fields] = await this.connectionPool.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
         return rows[0].id;
     }
 
