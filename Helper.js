@@ -2,6 +2,15 @@ const Nimiq = require('../core/dist/node.js');
 const PoolConfig = require('./PoolConfig.js');
 
 class Helper {
+
+    /**
+     * @param {Nimiq.Block} block
+     * @returns {number}
+     */
+    static getTotalBlockReward(block) {
+        return (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
+    }
+
     /**
      * @param {mysql2.Pool} connectionPool
      * @param {number} userId

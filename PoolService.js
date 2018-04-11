@@ -53,9 +53,9 @@ class PoolService extends Nimiq.Observable {
         if (block.minerAddr.equals(this.poolAddress)) {
             const blockId = await Helper.getStoreBlockId(this.connectionPool, block.hash(), block.height);
             const [addrDifficulty, totalDifficulty] = await this._getLastNShares(block, 1000);
-            let totalBlockReward = (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
+            let totalBlockReward = Helper.getTotalBlockReward(block);
             for (const addr of addrDifficulty.keys()) {
-                const userReward = addrDifficulty.get(addr) * totalBlockReward / totalDifficulty;
+                const userReward = Math.floor(addrDifficulty.get(addr) * totalBlockReward / totalDifficulty);
                 await this._storePayin(addr, userReward, Date.now(), blockId);
             }
         }

@@ -36,6 +36,11 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     async _processPayouts() {
+        const payinsValid = await this._validatePayins();
+        if (!payinsValid) {
+            throw new Error('Payin inconsistency');
+        }
+
         const autoPayouts = await this._getAutoPayouts();
         for (let userAddress of autoPayouts.keys()) {
             await this._payout(userAddress, autoPayouts.get(userAddress), false);
@@ -47,6 +52,7 @@ class PoolPayout extends Nimiq.Observable {
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
         }
+        process.exit(0);
     }
 
     /**
@@ -139,6 +145,41 @@ class PoolPayout extends Nimiq.Observable {
         const query = `DELETE FROM payout_request WHERE user=?`;
         const queryArgs = [userId];
         await this.connectionPool.execute(query, queryArgs);
+    }
+
+    async _validatePayins() {
+        const query = `
+            SELECT hash, SUM(amount) AS payin_sum
+            FROM (
+                (
+                    SELECT user, block, amount
+                    FROM payin
+                ) t3
+                INNER JOIN
+                (
+                    SELECT id, hash
+                    FROM block
+                    WHERE main_chain=true
+                ) t4
+                ON t4.id = t3.block
+            )
+            GROUP BY block
+        `;
+        const [rows, fields] = await this.connectionPool.execute(query);
+
+        for (let row of rows) {
+            const hashBuf = new Nimiq.SerialBuffer(Uint8Array.from(row.hash));
+            const hash = Nimiq.Hash.unserialize(hashBuf);
+            const block = await this.consensus.blockchain.getBlock(hash, false, true);
+            if (!block.minerAddr.equals(this.wallet.address)) {
+                return false;
+            }
+            let totalBlockReward = Helper.getTotalBlockReward(block);
+            if (row.payin_sum > totalBlockReward) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
