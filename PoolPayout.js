@@ -42,11 +42,11 @@ class PoolPayout extends Nimiq.Observable {
         }
 
         const autoPayouts = await this._getAutoPayouts();
-        for (let userAddress of autoPayouts.keys()) {
+        for (const userAddress of autoPayouts.keys()) {
             await this._payout(userAddress, autoPayouts.get(userAddress), false);
         }
         const payoutRequests = await this._getPayoutRequests();
-        for (let userId of payoutRequests) {
+        for (const userId of payoutRequests) {
             const balance = await Helper.getUserBalance(this.connectionPool, userId, this.consensus.blockchain.height);
             const user = await Helper.getUser(this.connectionPool, userId);
             await this._payout(user, balance, true);
@@ -62,10 +62,11 @@ class PoolPayout extends Nimiq.Observable {
      * @private
      */
     async _payout(recipientAddress, amount, deductFees) {
-        const txAmount = Math.floor(deductFees ? amount - PoolConfig.NETWORK_FEE : amount);
+        const fee = 137 * PoolConfig.NETWORK_FEE;
+        const txAmount = Math.floor(deductFees ? amount - fee : amount);
         if (txAmount > 0) {
-            Nimiq.Log.i(PoolPayout, "PAYING " + txAmount / Nimiq.Policy.SATOSHIS_PER_COIN + " NIM to " + recipientAddress.toUserFriendlyAddress());
-            const tx = this.wallet.createTransaction(recipientAddress, txAmount, 137 * PoolConfig.NETWORK_FEE, this.consensus.blockchain.height);
+            Nimiq.Log.i(PoolPayout, `PAYING ${Nimiq.Policy.satoshisToCoins(txAmount)} NIM to ${recipientAddress.toUserFriendlyAddress()}`);
+            const tx = this.wallet.createTransaction(recipientAddress, txAmount, fee, this.consensus.blockchain.height);
             await this._storePayout(recipientAddress, amount, Date.now(), tx.hash());
             this.consensus.mempool.pushTransaction(tx);
 
@@ -95,16 +96,14 @@ class PoolPayout extends Nimiq.Observable {
                             WHERE main_chain=true
                             ORDER BY height DESC
                         ) t4
-                        
                         ON t4.id = t3.block
                     )
                     WHERE height <= ?
                     GROUP BY user
-                    
                 ) t1
                 LEFT JOIN 
                 (
-                    SELECT user, SUM(amount) as payout_sum
+                    SELECT user, SUM(amount) AS payout_sum
                     FROM payout
                     GROUP BY user
                 ) t2
@@ -112,11 +111,11 @@ class PoolPayout extends Nimiq.Observable {
             )
             WHERE payin_sum - IFNULL(payout_sum, 0) > ?
         `;
-        const queryArgs = [this._consensus.blockchain.height - PoolConfig.CONFIRMATIONS, PoolConfig.AUTO_PAY_OUT];
+        const queryArgs = [this.consensus.blockchain.height - PoolConfig.CONFIRMATIONS, PoolConfig.AUTO_PAY_OUT_LIMIT];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         const ret = new Map();
-        for (let row of rows) {
+        for (const row of rows) {
             ret.set(await Helper.getUser(this.connectionPool, row.user), row.payin_sum - row.payout_sum);
         }
         return ret;
@@ -127,11 +126,11 @@ class PoolPayout extends Nimiq.Observable {
      * @private
      */
     async _getPayoutRequests() {
-        const query = `SELECT * from payout_request`;
+        const query = `SELECT * FROM payout_request`;
         const [rows, fields] = await this.connectionPool.execute(query);
 
         let ret = [];
-        for (let row of rows) {
+        for (const row of rows) {
             ret.push(row.user);
         }
         return ret;
@@ -167,15 +166,15 @@ class PoolPayout extends Nimiq.Observable {
         `;
         const [rows, fields] = await this.connectionPool.execute(query);
 
-        for (let row of rows) {
+        for (const row of rows) {
             const hashBuf = new Nimiq.SerialBuffer(Uint8Array.from(row.hash));
             const hash = Nimiq.Hash.unserialize(hashBuf);
             const block = await this.consensus.blockchain.getBlock(hash, false, true);
             if (!block.minerAddr.equals(this.wallet.address)) {
                 return false;
             }
-            let totalBlockReward = Helper.getTotalBlockReward(block);
-            if (row.payin_sum > totalBlockReward) {
+            let payableBlockReward = Helper.getPayableBlockReward(block);
+            if (row.payin_sum > payableBlockReward) {
                 return false;
             }
         }
@@ -204,7 +203,7 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     /**
-     * @type {Nimiq.FullConsensus}
+     * @type {Nimiq.BaseConsensus}
      * */
     get consensus() {
         return this._consensus;

@@ -7,6 +7,11 @@ const PoolService = require('./PoolService.js');
 const PoolPayout = require('./PoolPayout.js');
 
 (async () => {
+    Nimiq.Log.instance.level = config.log.level;
+    for(const tag in config.log.tags) {
+        Nimiq.Log.instance.setLoggable(tag, config.log.tags[tag]);
+    }
+    
     const START = Date.now();
     const TAG = 'Node';
     const $ = {};
@@ -43,7 +48,7 @@ const PoolPayout = require('./PoolPayout.js');
     $.mempool = $.consensus.mempool;
     $.network = $.consensus.network;
 
-    console.log(`Peer address: ${networkConfig.peerAddress.toString()} - public key: ${networkConfig.keyPair.publicKey.toHex()}`);
+    Nimiq.Log.i(TAG, `Peer address: ${networkConfig.peerAddress.toString()} - public key: ${networkConfig.keyPair.publicKey.toHex()}`);
 
     // TODO: Wallet key.
     $.walletStore = await new Nimiq.WalletStore();
@@ -69,10 +74,12 @@ const PoolPayout = require('./PoolPayout.js');
             poolServer.stop();
             process.exit(0);
         });
-    } else if (config.poolService.enabled) {
+    }
+    if (config.poolService.enabled) {
         const poolService = new PoolService($.consensus, Nimiq.Address.fromUserFriendlyAddress(config.poolService.poolAddress), config.poolService.mySqlPsw, config.poolService.mySqlHost);
         poolService.start();
-    } else if (config.poolPayout.enabled) {
+    }
+    if (config.poolPayout.enabled) {
         const poolPayout = new PoolPayout($.consensus, $.wallet, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
         poolPayout.start();
     }

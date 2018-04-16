@@ -7,7 +7,7 @@ class Helper {
      * @param {Nimiq.Block} block
      * @returns {number}
      */
-    static getTotalBlockReward(block) {
+    static getPayableBlockReward(block) {
         return (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
     }
 
@@ -36,14 +36,12 @@ class Helper {
                         FROM block
                         WHERE height <= ?
                     ) t4
-                    
                     ON t4.id = t3.block
                 )
-                
             ) t1
-            LEFT JOIN 
+            LEFT JOIN
             (
-                SELECT user, SUM(amount) as payout_sum
+                SELECT user, SUM(amount) AS payout_sum
                 FROM payout
                 WHERE user=?
             ) t2

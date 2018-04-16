@@ -65,7 +65,7 @@ class PoolAgent {
         try {
             await this._onMessage(JSON.parse(data));
         } catch (e) {
-            console.log(e);
+            Nimiq.Log.e(PoolAgent, e);
             this._pool.ban(this._ws);
         }
     }
@@ -75,8 +75,7 @@ class PoolAgent {
      * @private
      */
     async _onMessage(msg) {
-        console.log('IN');
-        console.log(msg);
+        Nimiq.Log.d(PoolAgent, `IN: ${JSON.stringify(msg)}`);
         if (msg.message === PoolAgent.MESSAGE_REGISTER) {
             await this._onRegisterMessage(msg);
             return;
@@ -116,12 +115,15 @@ class PoolAgent {
     async _onRegisterMessage(msg) {
         this._address = Nimiq.Address.fromUserFriendlyAddress(msg.address);
         this._deviceId = msg.deviceId;
-        if (msg.mode === 'smart') {
-            this.mode = PoolAgent.MODE_SMART;
-        } else if (msg.mode === 'nano'){
-            this.mode = PoolAgent.MODE_NANO;
-        } else {
-            throw new Error('Client did not specify mode');
+        switch (msg.mode) {
+            case PoolAgent.MODE_SMART:
+                this.mode = PoolAgent.MODE_SMART;
+                break;
+            case PoolAgent.MODE_NANO:
+                this.mode = PoolAgent.MODE_NANO;
+                break;
+            default:
+                throw new Error('Client did not specify mode');
         }
 
         const genesisHash = Nimiq.Hash.unserialize(Nimiq.BufferUtils.fromBase64(msg.genesisHash));
@@ -130,7 +132,7 @@ class PoolAgent {
                 message: PoolAgent.MESSAGE_ERROR,
                 reason: 'different genesis block'
             });
-            throw new Error('Client had different genesis block');
+            throw new Error('Client has different genesis block');
         }
 
         this._sharesSinceReset = 0;
@@ -146,12 +148,13 @@ class PoolAgent {
         });
 
         this._sendSettings();
-        if (this.mode === 'nano') {
+        if (this.mode === PoolAgent.MODE_NANO) {
             this._pool.requestCurrentHead(this);
         }
         await this.sendBalance();
         this._sendBalanceInterval = setInterval(() => this.sendBalance(), 1000 * 60 * 1);
-        console.log("REGISTER " + this._address.toUserFriendlyAddress() + " current balance: " + await this._pool.getUserBalance(this._userId));
+
+        Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
 
     /**
@@ -171,7 +174,7 @@ class PoolAgent {
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason !== null) {
             this._send({
-                message: PoolAgent.ERROR,
+                message: PoolAgent.MESSAGE_ERROR,
                 reason: 'invalid share ' + invalidReason
             });
             return;
@@ -182,7 +185,7 @@ class PoolAgent {
             this._pool.consensus.blockchain.pushBlock(block);
         }
         await this._pool.storeShare(this._userId, this._deviceId, block.header.prevHash, block.header.height - 1, this._difficulty, hash);
-        console.log('SHARE from ' + this._address.toUserFriendlyAddress() + ' prev ' + block.header.prevHash + ' : ' + hash);
+        Nimiq.Log.d(PoolAgent, `SHARE from ${this._address.toUserFriendlyAddress()}, prev ${block.header.prevHash} : ${hash}`);
     }
 
     /**
@@ -219,7 +222,7 @@ class PoolAgent {
         }
 
         if (!block.isImmediateSuccessorOf(this._prevBlock)) {
-            return 'bad prev'
+            return 'bad prev';
         }
         return null;
     }
@@ -237,7 +240,7 @@ class PoolAgent {
         const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof);
         if (invalidReason !== null) {
             this._send({
-                message: PoolAgent.ERROR,
+                message: PoolAgent.MESSAGE_ERROR,
                 reason: 'invalid share ' + invalidReason
             });
             throw new Error('Client sent invalid share');
@@ -249,7 +252,7 @@ class PoolAgent {
             const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(block, true);
             if (successors.length > 0) {
                 this._send({
-                    message: PoolAgent.ERROR,
+                    message: PoolAgent.MESSAGE_ERROR,
                     reason: 'too old'
                 });
                 return;
@@ -257,7 +260,7 @@ class PoolAgent {
         }
 
         await this._pool.storeShare(this._userId, this._deviceId, header.prevHash, header.height - 1, this._difficulty, hash);
-        console.log('SHARE from ' + this._address.toUserFriendlyAddress() + ' prev ' + header.prevHash + ' : ' + hash);
+        Nimiq.Log.d(PoolAgent, `SHARE from ${this._address.toUserFriendlyAddress()}, prev ${header.prevHash} : ${hash}`);
     }
 
     /**
@@ -276,7 +279,7 @@ class PoolAgent {
 
         // Check if we are the _miner or the share
         if (!(await minerAddrProof.computeRoot(this._pool.poolAddress)).equals(header.bodyHash)) {
-            return '_miner address mismatch';
+            return 'miner address mismatch';
         }
 
         // Check if the extra data is in the share
@@ -319,6 +322,9 @@ class PoolAgent {
         return await proof.verify(this._address, buf);
     }
 
+    /**
+     * To reduce network traffic, we set the minimum share difficulty for a user according to their number of shares in the last SPS_TIME_UNIT
+     */
     _recalcDifficulty() {
         clearTimeout(this._timeout);
         const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset);
@@ -366,12 +372,11 @@ class PoolAgent {
      * @private
      */
     _send(msg) {
-        console.log('OUT');
-        console.log(msg);
+        Nimiq.Log.d(PoolAgent, `OUT: ${JSON.stringify(msg)}`);
         try {
             this._ws.send(JSON.stringify(msg));
         } catch (e) {
-            console.log('error', e);
+            Nimiq.Log.e(PoolAgent, e);
             this._onError();
         }
     }

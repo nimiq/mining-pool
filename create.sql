@@ -22,7 +22,7 @@ CREATE INDEX idx_block_height ON nimpool.block (height);
 CREATE TABLE nimpool.share (
   id           INTEGER    PRIMARY KEY NOT NULL AUTO_INCREMENT,
   user         INTEGER    NOT NULL REFERENCES nimpool.user(id),
-  device       INTEGER    NOT NULL,
+  device       INTEGER    UNSIGNED NOT NULL,
   prev_block   INTEGER    NOT NULL REFERENCES nimpool.block(id),
   difficulty   DOUBLE     NOT NULL,
   hash         BINARY(32) NOT NULL UNIQUE

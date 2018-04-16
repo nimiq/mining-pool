@@ -49,23 +49,19 @@ class PoolService extends Nimiq.Observable {
      * @private
      */
     async _distributePayinsForBlock(block) {
-        console.log('_miner addr ' + block.minerAddr.toUserFriendlyAddress() + ' our ' + this.poolAddress.toUserFriendlyAddress());
+        Nimiq.Log.d(PoolService, 'Miner addr ' + block.minerAddr.toUserFriendlyAddress() + ' our ' + this.poolAddress.toUserFriendlyAddress());
         if (block.minerAddr.equals(this.poolAddress)) {
             const blockId = await Helper.getStoreBlockId(this.connectionPool, block.hash(), block.height);
-            const [addrDifficulty, totalDifficulty] = await this._getLastNShares(block, 1000);
-            let totalBlockReward = Helper.getTotalBlockReward(block);
-            for (const addr of addrDifficulty.keys()) {
-                const userReward = Math.floor(addrDifficulty.get(addr) * totalBlockReward / totalDifficulty);
+            const [difficultyByAddress, totalDifficulty] = await this._getLastNShares(block, 1000);
+            let payableBlockReward = Helper.getPayableBlockReward(block);
+            Nimiq.Log.i(PoolService, `Distributing payable value of ${Nimiq.Policy.satoshisToCoins(payableBlockReward)} NIM to ${difficultyByAddress.size} users`);
+            for (const addr of difficultyByAddress.keys()) {
+                const userReward = Math.floor(difficultyByAddress.get(addr) * payableBlockReward / totalDifficulty);
                 await this._storePayin(addr, userReward, Date.now(), blockId);
             }
         }
     }
 
-    /**
-     * @param {Array.<Nimiq.Hash>} prevHashes
-     * @param {number} n
-     * @returns {Promise.<Map.<Nimiq.Address,number>>}
-     */
     /**
      * @param {Nimiq.Block} lastBlock
      * @param {number} n
@@ -82,11 +78,11 @@ class PoolService extends Nimiq.Observable {
                 FROM
                 (
                     (
-                        SELECT user, difficulty, prev_block from share
+                        SELECT user, difficulty, prev_block FROM share
                     ) t1
                     INNER JOIN
                     (
-                        SELECT * from block
+                        SELECT * FROM block
                         WHERE main_chain=true AND height<=?
                     ) t2
                     ON t1.prev_block=t2.id
@@ -100,7 +96,7 @@ class PoolService extends Nimiq.Observable {
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         let totalDifficulty = 0;
-        for (let row of rows) {
+        for (const row of rows) {
             const address = await Helper.getUser(this.connectionPool, row.user);
             ret.set(address, row.difficulty_sum);
             totalDifficulty += row.difficulty_sum;

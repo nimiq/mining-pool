@@ -2,6 +2,8 @@ const fs = require('fs');
 const JSON5 = require('json5');
 const merge = require('lodash.merge');
 
+const Log = require('../core/dist/node.js').Log;
+const TAG = 'Config';
 
 /**
  * @typedef {object} Config
@@ -33,8 +35,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         name: null,
         poolAddress: null,
         port: -1,
-        certPath: null,
-        keyPath: null,
+        sslCertPath: null,
+        sslKeyPath: null,
         mySqlPsw: null,
         mySqlHost: null
     },
@@ -132,16 +134,16 @@ function validateItemType(config, key, type, error = true) {
         }
         if (type === 'number' && typeof config[key] === 'string') {
             if (!isNaN(parseInt(config[key]))) {
-                console.log(`Configuration option '${key}' should be of type 'number', but is of type 'string', will parse it.`);
+                Log.i(TAG, `Configuration option '${key}' should be of type 'number', but is of type 'string', will parse it.`);
                 config[key] = parseInt(config[key]);
             }
         }
         if (type === 'string' && typeof config[key] === 'number') {
-            console.log(`Configuration option '${key}' should be of type 'string', but is of type 'number', will convert it.`);
+            Nimiq.Log.i(TAG, `Configuration option '${key}' should be of type 'string', but is of type 'number', will convert it.`);
             config[key] = config[key].toString();
         }
         if (typeof config[key] !== type) {
-            if (error) console.log(`Configuration option '${key}' is of type '${typeof config[key]}', but '${type}' is required`);
+            if (error) Log.w(TAG, `Configuration option '${key}' is of type '${typeof config[key]}', but '${type}' is required`);
             valid = false;
         }
     } else if (typeof type === 'object') {
@@ -152,12 +154,12 @@ function validateItemType(config, key, type, error = true) {
         }
         if (type.type === 'array') {
             if (!Array.isArray(config[key])) {
-                if (error) console.log(`Configuration option '${key}' should be an array.`);
+                if (error) Log.w(TAG, `Configuration option '${key}' should be an array.`);
                 valid = false;
             } else if (type.inner) {
                 for (let i = 0; i < config[key].length; i++) {
                     if (!validateItemType(config[key], i, type.inner, false)) {
-                        if (error) console.log(`Element ${i} of configuration option '${key}' is invalid.`);
+                        if (error) Log.w(TAG, `Element ${i} of configuration option '${key}' is invalid.`);
                         valid = false;
                     }
                 }
@@ -165,7 +167,7 @@ function validateItemType(config, key, type, error = true) {
         }
         if (Array.isArray(type.values)) {
             if (!type.values.includes(config[key])) {
-                if (error) console.log(`Configuration option '${key}' is '${config[key]}', but must be one of '${type.values.slice(0, type.values.length - 1).join('\', \'')}' or '${type.values[type.values.length - 1]}'.`);
+                if (error) Log.w(TAG, `Configuration option '${key}' is '${config[key]}', but must be one of '${type.values.slice(0, type.values.length - 1).join('\', \'')}' or '${type.values[type.values.length - 1]}'.`);
                 valid = false;
             }
         }
@@ -183,7 +185,7 @@ function validateItemType(config, key, type, error = true) {
                 }
             }
             if (!subvalid) {
-                if (error) console.log(`Configuration option '${key}' is invalid`);
+                if (error) Log.w(TAG, `Configuration option '${key}' is invalid`);
                 valid = false;
             }
         }
@@ -196,7 +198,7 @@ function validateObjectType(config, types = CONFIG_TYPES, error = true) {
     for (const key in types) {
         if (!(key in config) || config[key] === undefined || config[key] === null) {
             if (typeof types[key] === 'object' && types[key].required) {
-                if (error) console.log(TAG, `Required configuration option '${key}' is missing`);
+                if (error) Log.w(TAG, `Required configuration option '${key}' is missing`);
                 valid = false;
             }
             continue;
@@ -221,13 +223,13 @@ function readFromFile(file, oldConfig = merge({}, DEFAULT_CONFIG)) {
     try {
         const config = JSON5.parse(fs.readFileSync(file));
         if (!validateObjectType(config)) {
-            console.log(`Configuration file ${file} is invalid.`);
+            Log.e(TAG, `Configuration file ${file} is invalid.`);
             return false;
         } else {
             return merge(oldConfig, config);
         }
     } catch (e) {
-        console.log(`Failed to read file ${file}: ${e.message}`);
+        Log.e(TAG, `Failed to read file ${file}: ${e.message}`);
         return false;
     }
 }

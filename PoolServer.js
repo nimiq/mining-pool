@@ -59,7 +59,7 @@ class PoolServer extends Nimiq.Observable {
 
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
 
-        this._consensus.on('established', () => this.start());
+        this.consensus.on('established', () => this.start());
     }
 
     async start() {
@@ -76,7 +76,7 @@ class PoolServer extends Nimiq.Observable {
         this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath);
         this._wss.on('connection', ws => this._onConnection(ws));
 
-        this._consensus.blockchain.on('head-changed', (head) => this._announceHeadToNano(head));
+        this.consensus.blockchain.on('head-changed', (head) => this._announceHeadToNano(head));
     }
 
     static createServer(port, sslKeyPath, sslCertPath) {
@@ -105,7 +105,7 @@ class PoolServer extends Nimiq.Observable {
     _onConnection(ws) {
         const netAddress = Nimiq.NetAddress.fromIP(ws._socket.remoteAddress);
         if (this._isIpBanned(netAddress)) {
-            console.log(`Banned IP tried to connect ${netAddress}`);
+            Nimiq.Log.i(PoolServer, `Banned IP tried to connect ${netAddress}`);
             ws.close();
         } else {
             const agent = new PoolAgent(this, ws);
@@ -117,7 +117,7 @@ class PoolServer extends Nimiq.Observable {
      * @param {PoolAgent} agent
      */
     requestCurrentHead(agent) {
-        console.log('request head');
+        Nimiq.Log.d(PoolServer, 'request head');
         agent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
     }
 
@@ -126,7 +126,7 @@ class PoolServer extends Nimiq.Observable {
      * @private
      */
     async _announceHeadToNano(head) {
-        console.log('new head');
+        Nimiq.Log.d(PoolServer, 'new head');
         this._currentLightHead = head.toLight();
         await this._updateTransactions();
         this._announceNewNextToNano();
@@ -166,7 +166,7 @@ class PoolServer extends Nimiq.Observable {
      */
     _banIp(netAddress) {
         if (!netAddress.isPseudo()) {
-            console.log(`Banning IP ${netAddress}`);
+            Nimiq.Log.i(PoolServer, `Banning IP ${netAddress}`);
             if (netAddress.isIPv4()) {
                 this._bannedIPv4IPs.put(netAddress, Date.now() + PoolServer.DEFAULT_BAN_TIME);
             } else if (netAddress.isIPv6()) {
@@ -227,7 +227,7 @@ class PoolServer extends Nimiq.Observable {
      * @returns {boolean}
      */
     async containsShare(user, shareHash) {
-        const query = "SELECT * from share WHERE user=? and hash=?";
+        const query = "SELECT * FROM share WHERE user=? AND hash=?";
         const queryArgs = [user, shareHash.serialize()];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
         return rows.length > 0;
@@ -239,7 +239,7 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise<number>}
      */
     async getUserBalance(userId, includeVirtual = false) {
-        return await Helper.getUserBalance(this.connectionPool, userId, this._consensus.blockchain.height, includeVirtual);
+        return await Helper.getUserBalance(this.connectionPool, userId, this.consensus.blockchain.height, includeVirtual);
     }
 
     /**
@@ -256,7 +256,7 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise.<boolean>}
      */
     async hasPayoutRequest(userId) {
-        const query = `SELECT * from payout_request WHERE user=?`;
+        const query = `SELECT * FROM payout_request WHERE user=?`;
         const [rows, fields] = await this.connectionPool.execute(query, [userId]);
         return rows.length > 0;
     }
@@ -288,6 +288,6 @@ class PoolServer extends Nimiq.Observable {
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes
 PoolServer.UNBAN_IPS_INTERVAL = 1000 * 60; // 1 minute
 //TODO connection timeout!
-PoolServer.CONNECTION_TIMEOUT = 1000 * 60 * 5; // 3 min
+PoolServer.CONNECTION_TIMEOUT = 1000 * 60 * 3; // 3 min
 
 module.exports = exports = PoolServer;

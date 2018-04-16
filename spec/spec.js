@@ -45,7 +45,7 @@ beforeEach((done) => {
             });
             await connection.query(data);
         } catch (e) {
-            console.log(e);
+            Nimiq.log.w('Spec', e);
         }
 
         data = fs.readFileSync('create.sql', 'utf8');
