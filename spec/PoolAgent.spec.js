@@ -48,7 +48,7 @@ describe('PoolAgent', () => {
     it('verifies shares (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '');
             await poolServer.start();
             const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: (msg) => { on_msg(msg); }, _socket: { remoteAddress: '1.2.3.4' } });
 
@@ -92,7 +92,7 @@ describe('PoolAgent', () => {
     it('does not count shares onto old blocks (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '');
             await poolServer.start();
             const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: (msg) => { on_msg(msg); }, _socket: { remoteAddress: '1.2.3.4' } });
 
@@ -133,7 +133,7 @@ describe('PoolAgent', () => {
             const clientAddress = keyPair.publicKey.toAddress();
 
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', 'localhost', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', 'localhost', '', '');
             await poolServer.start();
             const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
             spyOn(poolAgent, '_regenerateNonce').and.callFake(() => { poolAgent._nonce = 42 });

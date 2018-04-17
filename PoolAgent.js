@@ -1,5 +1,4 @@
 const Nimiq = require('../core/dist/node.js');
-const PoolConfig = require('./PoolConfig.js');
 
 class PoolAgent {
     constructor(pool, ws) {
@@ -13,7 +12,7 @@ class PoolAgent {
         this._ws.onclose = () => this._onClose();
 
         /** @type {number} */
-        this._difficulty = PoolConfig.START_DIFFICULTY;
+        this._difficulty = this._pool.config.minDifficulty;
 
         /** @type {number} */
         this._sharesSinceReset = 0;
@@ -96,7 +95,7 @@ class PoolAgent {
                     await this._onSmartShareMessage(msg);
                 }
                 this._sharesSinceReset++;
-                if (this._sharesSinceReset > 3 && 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset) > PoolConfig.DESIRED_SPS * 2) {
+                if (this._sharesSinceReset > 3 && 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset) > this._pool.config.desiredSps * 2) {
                     this._recalcDifficulty();
                 }
                 break;
@@ -137,7 +136,7 @@ class PoolAgent {
 
         this._sharesSinceReset = 0;
         this._lastReset = Date.now();
-        this._timeout = setTimeout(() => this._recalcDifficulty(), PoolConfig.SPS_TIME_UNIT);
+        this._timeout = setTimeout(() => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
         this._userId = await this._pool.getStoreUserId(this._address);
         this._regenerateNonce();
         this._regenerateExtraData();
@@ -328,18 +327,18 @@ class PoolAgent {
     _recalcDifficulty() {
         clearTimeout(this._timeout);
         const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset);
-        if (sharesPerMinute / PoolConfig.DESIRED_SPS > 2) {
+        if (sharesPerMinute / this._pool.config.desiredSps > 2) {
             this._difficulty *= 1.5;
             this._regenerateExtraData();
             this._sendSettings();
-        } else if (sharesPerMinute === 0 || PoolConfig.DESIRED_SPS / sharesPerMinute > 2) {
-            this._difficulty = Math.max(PoolConfig.START_DIFFICULTY, this._difficulty / 1.5);
+        } else if (sharesPerMinute === 0 || this._pool.config.desiredSps / sharesPerMinute > 2) {
+            this._difficulty = Math.max(this._pool.config.minDifficulty, this._difficulty / 1.5);
             this._regenerateExtraData();
             this._sendSettings();
         }
         this._sharesSinceReset = 0;
         this._lastReset = Date.now();
-        this._timeout = setTimeout(() => this._recalcDifficulty(), PoolConfig.SPS_TIME_UNIT);
+        this._timeout = setTimeout(() => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
     }
 
     _sendSettings() {

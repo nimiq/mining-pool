@@ -1,24 +1,26 @@
 const Nimiq = require('../core/dist/node.js');
 const mysql = require('mysql2/promise');
 
-const PoolConfig = require('./PoolConfig.js');
 const Helper = require('./Helper.js');
 
 class PoolService extends Nimiq.Observable {
     /**
      * @param {Nimiq.BaseConsensus} consensus
-     * @param {Nimiq.Address} poolAddress
+     * @param {PoolConfig} config
      * @param {string} mySqlPsw
      * @param {string} mySqlHost
      */
-    constructor(consensus, poolAddress, mySqlPsw, mySqlHost) {
+    constructor(consensus, config, mySqlPsw, mySqlHost) {
         super();
 
         /** @type {Nimiq.BaseConsensus} */
         this._consensus = consensus;
 
         /** @type {Nimiq.Address} */
-        this.poolAddress = poolAddress;
+        this.poolAddress = Nimiq.Address.fromUserFriendlyAddress(config.address);
+
+        /** @type {PoolConfig} */
+        this._config = config;
 
         /** @type {string} */
         this._mySqlPsw = mySqlPsw;
@@ -53,7 +55,7 @@ class PoolService extends Nimiq.Observable {
         if (block.minerAddr.equals(this.poolAddress)) {
             const blockId = await Helper.getStoreBlockId(this.connectionPool, block.hash(), block.height);
             const [difficultyByAddress, totalDifficulty] = await this._getLastNShares(block, 1000);
-            let payableBlockReward = Helper.getPayableBlockReward(block);
+            let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
             Nimiq.Log.i(PoolService, `Distributing payable value of ${Nimiq.Policy.satoshisToCoins(payableBlockReward)} NIM to ${difficultyByAddress.size} users`);
             for (const addr of difficultyByAddress.keys()) {
                 const userReward = Math.floor(difficultyByAddress.get(addr) * payableBlockReward / totalDifficulty);

@@ -21,7 +21,7 @@ describe('PoolService', () => {
     it('computes payins', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
             await poolServer.start();
 
             let poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
@@ -30,7 +30,7 @@ describe('PoolService', () => {
             poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
             await poolAgent._onRegisterMessage(NQ43sampleData.register);
 
-            const poolService = new PoolService(consensus, POOL_ADDRESS);
+            const poolService = new PoolService(consensus, POOL_CONFIG);
             await poolService.start();
 
             // console.log(await consensus.blockchain.pushBlock(ChainSampleData.block1));

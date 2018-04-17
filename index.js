@@ -8,10 +8,10 @@ const PoolPayout = require('./PoolPayout.js');
 
 (async () => {
     Nimiq.Log.instance.level = config.log.level;
-    for(const tag in config.log.tags) {
+    for (const tag in config.log.tags) {
         Nimiq.Log.instance.setLoggable(tag, config.log.tags[tag]);
     }
-    
+
     const START = Date.now();
     const TAG = 'Node';
     const $ = {};
@@ -23,7 +23,7 @@ const PoolPayout = require('./PoolPayout.js');
 
     Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS[config.network]);
 
-    for(const seedPeer of config.seedPeers) {
+    for (const seedPeer of config.seedPeers) {
         Nimiq.GenesisConfig.SEED_PEERS.push(Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey));
     }
 
@@ -64,8 +64,7 @@ const PoolPayout = require('./PoolPayout.js');
     }
 
     if (config.poolServer.enabled) {
-        const poolServer = new PoolServer($.consensus, config.poolServer.name, Nimiq.Address.fromUserFriendlyAddress(config.poolServer.poolAddress),
-            config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
+        const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
         process.on('SIGTERM', () => {
             poolServer.stop();
             process.exit(0);
@@ -76,11 +75,11 @@ const PoolPayout = require('./PoolPayout.js');
         });
     }
     if (config.poolService.enabled) {
-        const poolService = new PoolService($.consensus, Nimiq.Address.fromUserFriendlyAddress(config.poolService.poolAddress), config.poolService.mySqlPsw, config.poolService.mySqlHost);
+        const poolService = new PoolService($.consensus, config.pool, config.poolService.mySqlPsw, config.poolService.mySqlHost);
         poolService.start();
     }
     if (config.poolPayout.enabled) {
-        const poolPayout = new PoolPayout($.consensus, $.wallet, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
+        const poolPayout = new PoolPayout($.consensus, $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
         poolPayout.start();
     }
 

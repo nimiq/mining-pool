@@ -2,15 +2,16 @@ const Nimiq = require('../core/dist/node.js');
 const mysql = require('mysql2/promise');
 
 const Helper = require('./Helper.js');
-const PoolConfig = require('./PoolConfig.js');
 
 class PoolPayout extends Nimiq.Observable {
     /**
      * @param {Nimiq.BaseConsensus} consensus
      * @param {Nimiq.Wallet} wallet
+     * @param {PoolConfig} config
      * @param {string} mySqlPsw
+     * @param {string} mySqlHost
      */
-    constructor(consensus, wallet, mySqlPsw, mySqlHost) {
+    constructor(consensus, wallet, config, mySqlPsw, mySqlHost) {
         super();
         /** @type {Nimiq.BaseConsensus} */
         this._consensus = consensus;
@@ -18,8 +19,11 @@ class PoolPayout extends Nimiq.Observable {
         /** @type {Nimiq.Wallet} */
         this._wallet = wallet;
 
+        /** @type {PoolConfig} */
+        this._config = config;
+
         /** @type {string} */
-        this._mySqlPsq = mySqlPsw;
+        this._mySqlPsw = mySqlPsw;
 
         /** @type {string} */
         this._mySqlHost = mySqlHost;
@@ -29,7 +33,7 @@ class PoolPayout extends Nimiq.Observable {
         this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
             user: 'nimpool_payout',
-            password: this._mySqlPsq,
+            password: this._mySqlPsw,
             database: 'nimpool'
         });
         this.consensus.on('established', async () => {
@@ -50,7 +54,7 @@ class PoolPayout extends Nimiq.Observable {
         }
         const payoutRequests = await this._getPayoutRequests();
         for (const userId of payoutRequests) {
-            const balance = await Helper.getUserBalance(this.connectionPool, userId, this.consensus.blockchain.height);
+            const balance = await Helper.getUserBalance(this._config, this.connectionPool, userId, this.consensus.blockchain.height);
             const user = await Helper.getUser(this.connectionPool, userId);
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
@@ -64,7 +68,7 @@ class PoolPayout extends Nimiq.Observable {
      * @private
      */
     async _payout(recipientAddress, amount, deductFees) {
-        const fee = 137 * PoolConfig.NETWORK_FEE;
+        const fee = 138 * this._config.networkFee; // FIXME: Use from transaction 
         const txAmount = Math.floor(deductFees ? amount - fee : amount);
         if (txAmount > 0) {
             Nimiq.Log.i(PoolPayout, `PAYING ${Nimiq.Policy.satoshisToCoins(txAmount)} NIM to ${recipientAddress.toUserFriendlyAddress()}`);
@@ -113,7 +117,7 @@ class PoolPayout extends Nimiq.Observable {
             )
             WHERE payin_sum - IFNULL(payout_sum, 0) > ?
         `;
-        const queryArgs = [this.consensus.blockchain.height - PoolConfig.CONFIRMATIONS, PoolConfig.AUTO_PAY_OUT_LIMIT];
+        const queryArgs = [this.consensus.blockchain.height - this._config.payoutConfirmations, this._config.autoPayOutLimit];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         const ret = new Map();
@@ -175,7 +179,7 @@ class PoolPayout extends Nimiq.Observable {
             if (!block.minerAddr.equals(this.wallet.address)) {
                 return false;
             }
-            let payableBlockReward = Helper.getPayableBlockReward(block);
+            let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
             if (row.payin_sum > payableBlockReward) {
                 return false;
             }
@@ -192,7 +196,7 @@ class PoolPayout extends Nimiq.Observable {
      * @private
      */
     async _storePayout(recipientAddress, amount, datetime, transactionHash) {
-        const query = "INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)";
+        const query = 'INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)';
         const queryArgs = [await Helper.getUserId(this.connectionPool, recipientAddress), amount, datetime, transactionHash.serialize()];
         await this.connectionPool.execute(query, queryArgs);
     }

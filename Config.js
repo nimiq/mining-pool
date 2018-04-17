@@ -6,6 +6,19 @@ const Log = require('../core/dist/node.js').Log;
 const TAG = 'Config';
 
 /**
+ * @typedef {object} PoolConfig
+ * @property {string} name
+ * @property {string} address
+ * @property {number} payoutConfirmations: number
+ * @property {number} autoPayOutLimit
+ * @property {number} poolFee
+ * @property {number} networkFee
+ * @property {number} minDifficulty
+ * @property {number} spsTimeUnit
+ * @property {number} desiredSps
+ */
+
+/**
  * @typedef {object} Config
  * @property {string} host
  * @property {{cert: string, key: string}} tls
@@ -13,6 +26,10 @@ const TAG = 'Config';
  * @property {boolean} dumb
  * @property {string} type
  * @property {string} network
+ * @property {PoolConfig} pool
+ * @property {{enabled: boolean, port: number, sslCertPath: string, sslKeyPath: string, mySqlPsw: string, mySqlHost: string} poolServer
+ * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string} poolService
+ * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string} poolPayout
  * @property {{seed: string, address: string}} wallet
  * @property {{level: string, tags: object}} log
  * @property {Array.<{host: string, port: number, publicKey: string}>} seedPeers
@@ -25,15 +42,23 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         cert: null,
         key: null
     },
-    port: 8080,
+    port: 8443,
     dumb: false,
     type: 'full',
-    // TODO set default to 'main' for MainNet.
-    network: 'dev',
+    network: 'main',
+    pool: {
+        name: null,
+        address: null,
+        payoutConfirmations: 10,
+        autoPayOutLimit: 5000000, // 50 NIM
+        poolFee: 0.01, // 1%
+        networkFee: 1, // satoshi per byte
+        minDifficulty: 1,
+        spsTimeUnit: 60000, // 1 minute
+        desiredSps: 0.2 // desired shares per second
+    },
     poolServer: {
         enabled: false,
-        name: null,
-        poolAddress: null,
         port: -1,
         sslCertPath: null,
         sslKeyPath: null,
@@ -42,7 +67,6 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
     },
     poolService: {
         enabled: false,
-        poolAddress: null,
         mySqlPsw: null,
         mySqlHost: null
     },
@@ -75,11 +99,15 @@ const CONFIG_TYPES = {
     type: {type: 'string', values: ['full', 'light', 'nano']},
     network: 'string',
     statistics: 'number',
+    pool: {
+        type: 'object', sub: {
+            name: 'string',
+            address: 'string'
+        }
+    },
     poolServer: {
         type: 'object', sub: {
             enabled: 'boolean',
-            name: 'string',
-            poolAddress: 'string',
             port: 'number',
             certPath: 'string',
             keyPath: 'string',
@@ -90,7 +118,6 @@ const CONFIG_TYPES = {
     poolService: {
         type: 'object', sub: {
             enabled: 'boolean',
-            poolAddress: 'string',
             mySqlPsw: 'string',
             mySqlHost: 'string'
         }
@@ -235,3 +262,4 @@ function readFromFile(file, oldConfig = merge({}, DEFAULT_CONFIG)) {
 }
 
 module.exports = readFromFile;
+module.exports.DEFAULT_CONFIG = DEFAULT_CONFIG;

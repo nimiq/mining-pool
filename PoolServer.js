@@ -10,25 +10,27 @@ const Helper = require('./Helper.js');
 class PoolServer extends Nimiq.Observable {
     /**
      * @param {Nimiq.FullConsensus} consensus
-     * @param {string} name
-     * @param {Nimiq.Address} poolAddress
+     * @param {PoolConfig} config
      * @param {number} port
      * @param {string} mySqlPsw
      * @param {string} mySqlHost
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
      */
-    constructor(consensus, name, poolAddress, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath) {
+    constructor(consensus, config, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath) {
         super();
 
         /** @type {Nimiq.FullConsensus} */
         this._consensus = consensus;
 
         /** @type {string} */
-        this.name = name;
+        this.name = config.name;
 
         /** @type {Nimiq.Address} */
-        this.poolAddress = poolAddress;
+        this.poolAddress = Nimiq.Address.fromUserFriendlyAddress(config.address);
+
+        /** @type {PoolConfig} */
+        this._config = config;
 
         /** @type {number} */
         this.port = port;
@@ -46,7 +48,7 @@ class PoolServer extends Nimiq.Observable {
         this._sslCertPath = sslCertPath;
 
         /** @type {Nimiq.Miner} */
-        this._miner = new Nimiq.Miner(consensus.blockchain, consensus.blockchain.accounts, consensus.mempool, consensus.network.time, poolAddress);
+        this._miner = new Nimiq.Miner(consensus.blockchain, consensus.blockchain.accounts, consensus.mempool, consensus.network.time, this.poolAddress);
 
         /** @type {Set.<PoolAgent>} */
         this._agents = new Set();
@@ -237,7 +239,7 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise<number>}
      */
     async getUserBalance(userId, includeVirtual = false) {
-        return await Helper.getUserBalance(this.connectionPool, userId, this.consensus.blockchain.height, includeVirtual);
+        return await Helper.getUserBalance(this._config, this.connectionPool, userId, this.consensus.blockchain.height, includeVirtual);
     }
 
     /**
@@ -281,6 +283,11 @@ class PoolServer extends Nimiq.Observable {
      * */
     get consensus() {
         return this._consensus;
+    }
+
+    /** @type {PoolConfig} */
+    get config() {
+        return this._config;
     }
 }
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes

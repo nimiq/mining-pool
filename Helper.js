@@ -1,24 +1,25 @@
 const Nimiq = require('../core/dist/node.js');
-const PoolConfig = require('./PoolConfig.js');
 
 class Helper {
 
     /**
+     * @param {PoolConfig} config
      * @param {Nimiq.Block} block
      * @returns {number}
      */
-    static getPayableBlockReward(block) {
-        return (1 - PoolConfig.POOL_FEE) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
+    static getPayableBlockReward(config, block) {
+        return (1 - config.poolFee) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
     }
 
     /**
+     * @param {PoolConfig} config
      * @param {mysql2.Pool} connectionPool
      * @param {number} userId
      * @param {number} currChainHeight
      * @param {boolean} includeVirtual
      * @returns {Promise.<number>}
      */
-    static async getUserBalance(connectionPool, userId, currChainHeight, includeVirtual = false) {
+    static async getUserBalance(config, connectionPool, userId, currChainHeight, includeVirtual = false) {
         const query = `
         SELECT t1.user AS user, IFNULL(payin_sum, 0) - IFNULL(payout_sum, 0) AS balance
         FROM (
@@ -48,7 +49,7 @@ class Helper {
             ON t1.user = t2.user
         )
         `;
-        const queryHeight = includeVirtual ? currChainHeight : currChainHeight - PoolConfig.CONFIRMATIONS;
+        const queryHeight = includeVirtual ? currChainHeight : currChainHeight - config.payoutConfirmations;
         const queryArgs = [userId, queryHeight, userId];
         const [rows, fields] = await connectionPool.execute(query, queryArgs);
         if (rows.length === 1) {

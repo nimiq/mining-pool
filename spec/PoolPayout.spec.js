@@ -4,7 +4,6 @@ const mysql = require('mysql2/promise');
 const Nimiq = require('../../core/dist/node.js');
 
 const PoolPayout = require('../PoolPayout.js');
-const PoolConfig = require('../PoolConfig.js');
 
 describe('PoolPayout', () => {
 
@@ -23,7 +22,7 @@ describe('PoolPayout', () => {
             await connection.execute('INSERT INTO payin (user, amount, datetime, block) VALUES (?, ?, ?, ?)', [1, 4 * Nimiq.Policy.SATOSHIS_PER_COIN, Date.now(), 2]);
             await connection.execute('INSERT INTO payin (user, amount, datetime, block) VALUES (?, ?, ?, ?)', [2, 12 * Nimiq.Policy.SATOSHIS_PER_COIN, Date.now(), 2]);
 
-            PoolConfig.CONFIRMATIONS = 4;
+            POOL_CONFIG.payoutConfirmations = 4;
 
             const consensus = await Nimiq.Consensus.volatileFull();
             await consensus.blockchain.pushBlock(ChainSampleData.block1);
@@ -33,7 +32,7 @@ describe('PoolPayout', () => {
 
             const walletStore = await new Nimiq.WalletStore();
             const wallet = await walletStore.getDefault();
-            const poolPayout = new PoolPayout(consensus, wallet);
+            const poolPayout = new PoolPayout(consensus, wallet, POOL_CONFIG);
             await poolPayout.start();
             await poolPayout._processPayouts();
 
