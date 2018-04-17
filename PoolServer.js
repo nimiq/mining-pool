@@ -117,7 +117,6 @@ class PoolServer extends Nimiq.Observable {
      * @param {PoolAgent} agent
      */
     requestCurrentHead(agent) {
-        Nimiq.Log.d(PoolServer, 'request head');
         agent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
     }
 
@@ -126,7 +125,6 @@ class PoolServer extends Nimiq.Observable {
      * @private
      */
     async _announceHeadToNano(head) {
-        Nimiq.Log.d(PoolServer, 'new head');
         this._currentLightHead = head.toLight();
         await this._updateTransactions();
         this._announceNewNextToNano();

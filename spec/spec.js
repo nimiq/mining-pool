@@ -2,10 +2,6 @@ const fs = require('fs');
 const mysql = require('mysql2/promise');
 const Nimiq = require('../../core/dist/node.js');
 
-const ChainSampleData = require('./ChainSampleData.spec.js');
-const NQ25sampleData = require('./NQ25sampleData.spec.js');
-const NQ43sampleData = require('./NQ43sampleData.spec.js');
-
 NETCONFIG = new Nimiq.WsNetworkConfig('node1.test', 9000, 'key1', 'cert1');
 NETCONFIG._keyPair = Nimiq.KeyPair.fromHex('ab05e735f870ff4482a997eab757ea78f8a83356ea443ac68969824184b82903a5ea83e7ee0c8c7ad863c3ceffd31a63679e1ea34a5f89e3ae0f90c5d281d4a900');
 
@@ -45,7 +41,7 @@ beforeEach((done) => {
             });
             await connection.query(data);
         } catch (e) {
-            Nimiq.log.w('Spec', e);
+            Nimiq.Log.w('Spec', e);
         }
 
         data = fs.readFileSync('create.sql', 'utf8');
@@ -56,4 +52,8 @@ beforeEach((done) => {
     })().catch(done.fail);
 });
 
-jasmine.DEFAULT_TIMEOUT_INTERVAL = 1200000;
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 12000;
+
+const ChainSampleData = require('./ChainSampleData.spec.js');
+const NQ25sampleData = require('./NQ25sampleData.spec.js');
+const NQ43sampleData = require('./NQ43sampleData.spec.js');

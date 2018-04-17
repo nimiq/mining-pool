@@ -127,31 +127,6 @@ describe('PoolAgent', () => {
         })().catch(done.fail);
     });
 
-    it('handles balance requests', (done) => {
-        (async () => {
-            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
-            await connection.execute('INSERT INTO payin (user, amount, datetime, block) VALUES (?, ?, ?, ?)', [1, 5, Date.now(), 1]);
-            await connection.execute('INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)', [1, 2, Date.now(), 'lkghdjdf']);
-            await connection.execute('INSERT INTO block (id, hash, height) VALUES (?, ?, ?)', ['1', 'lsdjf', 0]);
-
-            const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, 'Test Pool', POOL_ADDRESS, 9999, '', '', '', '');
-            await poolServer.start();
-            const poolAgent = new PoolAgent(poolServer, {
-                close: () => {},
-                send: (m) => {
-                    msg = JSON.parse(m);
-                    if (msg.message === PoolAgent.MESSAGE_BALANCE) {
-                        expect(msg.balance).toEqual(3);
-                        expect(msg.confirmedBalance).toEqual(0);
-                    }
-                },
-                _socket: { remoteAddress: '1.2.3.4' }
-            });
-            await poolAgent._onMessage(NQ25sampleData.register);
-        })().catch(done.fail);
-    });
-
     it('handles payout requests', (done) => {
         (async () => {
             const keyPair = Nimiq.KeyPair.generate();
@@ -167,7 +142,8 @@ describe('PoolAgent', () => {
                 message: 'register',
                 address: clientAddress.toUserFriendlyAddress(),
                 deviceId: 111111111,
-                mode: 'smart'
+                mode: 'smart',
+                genesisHash: Nimiq.BufferUtils.toBase64(Nimiq.GenesisConfig.GENESIS_HASH.serialize())
             };
             await poolAgent._onMessage(registerMsg);
 
@@ -179,11 +155,13 @@ describe('PoolAgent', () => {
                 return Nimiq.SignatureProof.singleSig(usedKeyPair.publicKey, signature);
             }
 
+            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
+
+            /* // There currently is no signature required
             // garbage signature
             let request = { message: 'payout', proof: 'AAAAAAAAAAAAAAAAAAaaaaaaaa' };
             await poolAgent._onMessageData(JSON.stringify(request));
 
-            connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
             let userId = await poolServer.getStoreUserId(clientAddress);
             let [rows, fields] = await connection.execute('SELECT * FROM payout_request WHERE user=?', [userId]);
             expect(rows.length).toEqual(0);
@@ -196,6 +174,7 @@ describe('PoolAgent', () => {
             userId = await poolServer.getStoreUserId(clientAddress);
             [rows, fields] = await connection.execute('SELECT * FROM payout_request WHERE user=?', [userId]);
             expect(rows.length).toEqual(0);
+            */
 
             // valid signature
             signatureProof = await sendSignedPayoutRequest(keyPair);

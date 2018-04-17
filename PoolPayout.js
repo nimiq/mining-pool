@@ -32,7 +32,10 @@ class PoolPayout extends Nimiq.Observable {
             password: this._mySqlPsq,
             database: 'nimpool'
         });
-        this.consensus.on('established', () => this._processPayouts());
+        this.consensus.on('established', async () => {
+            await this._processPayouts();
+            process.exit(0);
+        });
     }
 
     async _processPayouts() {
@@ -52,7 +55,6 @@ class PoolPayout extends Nimiq.Observable {
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
         }
-        process.exit(0);
     }
 
     /**
