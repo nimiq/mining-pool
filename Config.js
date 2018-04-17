@@ -102,7 +102,14 @@ const CONFIG_TYPES = {
     pool: {
         type: 'object', sub: {
             name: 'string',
-            address: 'string'
+            address: 'string',
+            payoutConfirmations: 'number',
+            autoPayOutLimit: 'number',
+            poolFee: 'number',
+            networkFee: 'number',
+            minDifficulty: 'number',
+            spsTimeUnit: 'number',
+            desiredSps: 'number'
         }
     },
     poolServer: {
