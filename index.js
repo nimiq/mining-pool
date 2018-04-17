@@ -6,27 +6,39 @@ const PoolServer = require('./PoolServer.js');
 const PoolService = require('./PoolService.js');
 const PoolPayout = require('./PoolPayout.js');
 
+const START = Date.now();
+const TAG = 'Node';
+const $ = {};
+
+if (!config) {
+    Nimiq.Log.e(TAG, 'Specify a valid config file with --config=FILE');
+    process.exit(1);
+}
+if (config.poolServer.enabled && config.type !== 'full') {
+    Nimig.Log.e(TAG, 'Pool server must run as a \'full\' node');
+    process.exit(1);
+}
+if (config.poolPayout.enabled && (config.poolServer.enabled || config.poolService.enabled)) {
+    Nimiq.Log.e(TAG, 'Pool payout needs to run separately from pool server');
+    process.exit(1);
+}
+
+Nimiq.Log.instance.level = config.log.level;
+for (const tag in config.log.tags) {
+    Nimiq.Log.instance.setLoggable(tag, config.log.tags[tag]);
+}
+
+for (const key in config.constantOverrides) {
+    Nimiq.ConstantHelper.instance.set(key, config.constantOverrides[key]);
+}
+
+Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS[config.network]);
+
+for (const seedPeer of config.seedPeers) {
+    Nimiq.GenesisConfig.SEED_PEERS.push(Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey));
+}
+
 (async () => {
-    Nimiq.Log.instance.level = config.log.level;
-    for (const tag in config.log.tags) {
-        Nimiq.Log.instance.setLoggable(tag, config.log.tags[tag]);
-    }
-
-    const START = Date.now();
-    const TAG = 'Node';
-    const $ = {};
-    if (!config) {
-        Nimiq.Log.w(TAG, 'Specify a valid config file with --config=FILE');
-    }
-
-    const isNano = config.type === 'nano';
-
-    Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS[config.network]);
-
-    for (const seedPeer of config.seedPeers) {
-        Nimiq.GenesisConfig.SEED_PEERS.push(Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey));
-    }
-
     const networkConfig = config.dumb
         ? new Nimiq.DumbNetworkConfig()
         : new Nimiq.WsNetworkConfig(config.host, config.port, config.tls.key, config.tls.cert);
@@ -65,6 +77,12 @@ const PoolPayout = require('./PoolPayout.js');
 
     if (config.poolServer.enabled) {
         const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
+
+        if (config.poolMetricsServer.enabled) {
+            $.metricsServer = new MetricsServer(config.poolServer.sslKeyPath, config.poolServer.sslCertPath, config.poolMetricsServer.port, config.poolMetricsServer.password);
+            $.metricsServer.init(poolServer);
+        }
+
         process.on('SIGTERM', () => {
             poolServer.stop();
             process.exit(0);
@@ -86,6 +104,7 @@ const PoolPayout = require('./PoolPayout.js');
     const addresses = await $.walletStore.list();
     Nimiq.Log.i(TAG, `Managing wallets [${addresses.map(address => address.toUserFriendlyAddress())}]`);
 
+    const isNano = config.type === 'nano';
     const account = !isNano ? await $.accounts.get($.wallet.address) : null;
     Nimiq.Log.i(TAG, `Wallet initialized for address ${$.wallet.address.toUserFriendlyAddress()}.`
         + (!isNano ? ` Balance: ${Nimiq.Policy.satoshisToCoins(account.balance)} NIM` : ''));

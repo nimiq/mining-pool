@@ -75,6 +75,11 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         mySqlPsw: null,
         mySqlHost: null
     },
+    poolMetricsServer: {
+        enabled: false,
+        port: 8650,
+        password: null
+    },
     wallet: {
         seed: null,
     },
@@ -134,6 +139,13 @@ const CONFIG_TYPES = {
             enabled: 'boolean',
             mySqlPsw: 'string',
             mySqlHost: 'string'
+        }
+    },
+    poolMetricsServer: {
+        type: 'object', sub: {
+            enabled: 'boolean',
+            port: 'number',
+            password: 'string'
         }
     },
     wallet: {
@@ -254,6 +266,10 @@ if (!validateObjectType(DEFAULT_CONFIG)) {
  * @returns {Config|boolean}
  */
 function readFromFile(file, oldConfig = merge({}, DEFAULT_CONFIG)) {
+    if (typeof file === 'undefined') {
+        Log.e(TAG, 'No configuration file given');
+        return false;
+    }
     try {
         const config = JSON5.parse(fs.readFileSync(file));
         if (!validateObjectType(config)) {

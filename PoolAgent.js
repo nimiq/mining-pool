@@ -1,7 +1,9 @@
 const Nimiq = require('../core/dist/node.js');
 
-class PoolAgent {
+class PoolAgent extends Nimiq.Observable {
     constructor(pool, ws) {
+        super();
+
         /** @type {PoolServer} */
         this._pool = pool;
 
@@ -74,7 +76,7 @@ class PoolAgent {
      * @private
      */
     async _onMessage(msg) {
-        Nimiq.Log.d(PoolAgent, `IN: ${JSON.stringify(msg)}`);
+        Nimiq.Log.v(PoolAgent, () => `IN: ${JSON.stringify(msg)}`);
         if (msg.message === PoolAgent.MESSAGE_REGISTER) {
             await this._onRegisterMessage(msg);
             return;
@@ -151,7 +153,7 @@ class PoolAgent {
             this._pool.requestCurrentHead(this);
         }
         await this.sendBalance();
-        this._sendBalanceInterval = setInterval(() => this.sendBalance(), 1000 * 60 * 1);
+        this._sendBalanceInterval = setInterval(() => this.sendBalance(), 1000 * 60 * 2);
 
         Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
@@ -179,12 +181,18 @@ class PoolAgent {
             return;
         }
 
-        const nextTarget = await this._pool.consensus.blockchain.getNextTarget(await this._pool.consensus.blockchain.getBlock(block.prevHash));
+        const prevBlock = await this._pool.consensus.blockchain.getBlock(block.prevHash);
+        const nextTarget = await this._pool.consensus.blockchain.getNextTarget(prevBlock);
         if (Nimiq.BlockUtils.isProofOfWork(await block.header.pow(), nextTarget)) {
             this._pool.consensus.blockchain.pushBlock(block);
+            this.fire('block', block.header);
         }
+
         await this._pool.storeShare(this._userId, this._deviceId, block.header.prevHash, block.header.height - 1, this._difficulty, hash);
-        Nimiq.Log.d(PoolAgent, `SHARE from ${this._address.toUserFriendlyAddress()}, prev ${block.header.prevHash} : ${hash}`);
+
+        Nimiq.Log.d(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()}, prev ${block.header.prevHash} : ${hash}`);
+
+        this.fire('share', block.header, this._difficulty);
     }
 
     /**
@@ -220,9 +228,10 @@ class PoolAgent {
             return 'bad interlink';
         }
 
-        if (!block.isImmediateSuccessorOf(this._prevBlock)) {
+        if (!(await block.isImmediateSuccessorOf(this._prevBlock))) {
             return 'bad prev';
         }
+
         return null;
     }
 
@@ -235,8 +244,9 @@ class PoolAgent {
         const hash = await header.hash();
         const minerAddrProof = Nimiq.MerklePath.unserialize(Nimiq.BufferUtils.fromBase64(msg.minerAddrProof));
         const extraDataProof = Nimiq.MerklePath.unserialize(Nimiq.BufferUtils.fromBase64(msg.extraDataProof));
+        const fullBlock = msg.block ? Nimiq.Block.unserialize(Nimiq.BufferUtils.fromBase64(msg.block)) : null;
 
-        const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof);
+        const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
         if (invalidReason !== null) {
             this._send({
                 message: PoolAgent.MESSAGE_ERROR,
@@ -246,9 +256,9 @@ class PoolAgent {
         }
 
         // If we know a successor of the block mined onto, it does not make sense to mine onto that block anymore
-        const block = await this._pool.consensus.blockchain.getBlock(header.prevHash);
-        if (block !== null) {
-            const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(block, true);
+        const prevBlock = await this._pool.consensus.blockchain.getBlock(header.prevHash);
+        if (prevBlock !== null) {
+            const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(prevBlock, true);
             if (successors.length > 0) {
                 this._send({
                     message: PoolAgent.MESSAGE_ERROR,
@@ -258,8 +268,24 @@ class PoolAgent {
             }
         }
 
+        const nextTarget = await this._pool.consensus.blockchain.getNextTarget(prevBlock);
+        if (Nimiq.BlockUtils.isProofOfWork(await header.pow(), nextTarget)) {
+            if (fullBlock && (await this._pool.consensus.blockchain.pushBlock(fullBlock)) === Nimiq.FullChain.ERR_INVALID) {
+                this._send({
+                    message: PoolAgent.MESSAGE_ERROR,
+                    reason: 'invalid block'
+                });
+                throw new Error('Client sent invalid block');
+            }
+
+            this.fire('block', header);
+        }
+
         await this._pool.storeShare(this._userId, this._deviceId, header.prevHash, header.height - 1, this._difficulty, hash);
-        Nimiq.Log.d(PoolAgent, `SHARE from ${this._address.toUserFriendlyAddress()}, prev ${header.prevHash} : ${hash}`);
+
+        Nimiq.Log.d(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()}, prev ${header.prevHash} : ${hash}`);
+
+        this.fire('share', header, this._difficulty);
     }
 
     /**
@@ -267,10 +293,11 @@ class PoolAgent {
      * @param {Nimiq.Hash} hash
      * @param {Nimiq.MerklePath} minerAddrProof
      * @param {Nimiq.MerklePath} extraDataProof
+     * @param {Nimiq.Block} fullBlock
      * @returns {Promise.<?string>}
      * @private
      */
-    async _isSmartShareValid(header, hash, minerAddrProof, extraDataProof) {
+    async _isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock) {
         // Check if the share was already submitted
         if (await this._pool.containsShare(this._userId, hash)) {
             return 'already sent';
@@ -296,6 +323,12 @@ class PoolAgent {
         if (!Nimiq.BlockUtils.isProofOfWork(pow, Nimiq.BlockUtils.difficultyToTarget(this._difficulty))) {
             return 'invalid pow';
         }
+
+        // Check if the full block matches the header.
+        if (fullBlock && !hash.equals(fullBlock.hash())) {
+            return 'invalid block';
+        }
+
         return null;
     }
 
@@ -371,7 +404,7 @@ class PoolAgent {
      * @private
      */
     _send(msg) {
-        Nimiq.Log.d(PoolAgent, `OUT: ${JSON.stringify(msg)}`);
+        Nimiq.Log.v(PoolAgent, () => `OUT: ${JSON.stringify(msg)}`);
         try {
             this._ws.send(JSON.stringify(msg));
         } catch (e) {
@@ -381,6 +414,8 @@ class PoolAgent {
     }
 
     _onClose() {
+        this._offAll();
+
         clearInterval(this._sendBalanceInterval);
         clearTimeout(this._timeout);
         this._pool.removeAgent(this);

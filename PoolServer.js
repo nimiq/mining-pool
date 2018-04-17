@@ -59,6 +59,12 @@ class PoolServer extends Nimiq.Observable {
         /** @type {Nimiq.HashMap.<Uint8Array, number>} */
         this._bannedIPv6IPs = new Nimiq.HashMap();
 
+        /** @type {number} */
+        this._numBlocksMined = 0;
+
+        /** @type {number} */
+        this._totalShareDifficulty = 0;
+
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
 
         this.consensus.on('established', () => this.start());
@@ -111,8 +117,27 @@ class PoolServer extends Nimiq.Observable {
             ws.close();
         } else {
             const agent = new PoolAgent(this, ws);
+            agent.on('share', (header, difficulty) => this._onShare(header, difficulty));
+            agent.on('block', (header) => this._onBlock(header));
             this._agents.add(agent);
         }
+    }
+
+    /**
+     * @param {Nimiq.BlockHeader} header
+     * @param {number} difficulty
+     * @private
+     */
+    _onShare(header, difficulty) {
+        this._totalShareDifficulty += difficulty;
+    }
+
+    /**
+     * @param {BlockHeader} header
+     * @private
+     */
+    _onBlock(header) {
+        this._numBlocksMined++;
     }
 
     /**
@@ -288,6 +313,34 @@ class PoolServer extends Nimiq.Observable {
     /** @type {PoolConfig} */
     get config() {
         return this._config;
+    }
+
+    /**
+     * @type {number}
+     */
+    get numClients() {
+        return this._agents.size;
+    }
+
+    /**
+     * @type {number}
+     */
+    get numIpsBanned() {
+        return this._bannedIPv4IPs.length + this._bannedIPv6IPs.length;
+    }
+
+    /**
+     * @type {number}
+     */
+    get numBlocksMined() {
+        return this._numBlocksMined;
+    }
+
+    /**
+     * @type {number}
+     */
+    get totalShareDifficulty() {
+        return this._totalShareDifficulty;
     }
 }
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes
