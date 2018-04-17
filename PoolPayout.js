@@ -49,16 +49,21 @@ class PoolPayout extends Nimiq.Observable {
         }
 
         const autoPayouts = await this._getAutoPayouts();
+        Nimiq.Log.i(PoolPayout, `Processing ${autoPayouts.size} auto payouts`);
         for (const userAddress of autoPayouts.keys()) {
             await this._payout(userAddress, autoPayouts.get(userAddress), false);
         }
+
         const payoutRequests = await this._getPayoutRequests();
+        Nimiq.Log.i(PoolPayout, `Processing ${payoutRequests.length} payout requests`);
         for (const userId of payoutRequests) {
             const balance = await Helper.getUserBalance(this._config, this.connectionPool, userId, this.consensus.blockchain.height);
             const user = await Helper.getUser(this.connectionPool, userId);
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
         }
+
+        Nimiq.Log.i(PoolPayout, 'Finished, exiting now.');
     }
 
     /**
@@ -177,10 +182,12 @@ class PoolPayout extends Nimiq.Observable {
             const hash = Nimiq.Hash.unserialize(hashBuf);
             const block = await this.consensus.blockchain.getBlock(hash, false, true);
             if (!block.minerAddr.equals(this.wallet.address)) {
+                Nimiq.Log.e(PoolPayout, `Wrong miner address in block ${block.hash()}`);
                 return false;
             }
             let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
             if (row.payin_sum > payableBlockReward) {
+                Nimiq.Log.e(PoolPayout, `Stored payins are greater than the payable block reward for block ${block.hash()}`);
                 return false;
             }
         }
