@@ -5,6 +5,7 @@ const config = require('./Config.js')(argv.config);
 const PoolServer = require('./PoolServer.js');
 const PoolService = require('./PoolService.js');
 const PoolPayout = require('./PoolPayout.js');
+const MetricsServer = require('./MetricsServer.js');
 
 const START = Date.now();
 const TAG = 'Node';
