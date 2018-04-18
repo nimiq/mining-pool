@@ -65,7 +65,18 @@ class PoolServer extends Nimiq.Observable {
         /** @type {number} */
         this._totalShareDifficulty = 0;
 
+        /** @type {number} */
+        this._lastShareDifficulty = 0;
+
+        /** @type {number[]} */
+        this._hashrates = [];
+
+        /** @type {number} */
+        this._averageHashrate = 0;
+
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
+
+        setInterval(() => this._calculateHashrate(), PoolServer.HASHRATE_INTERVAL);
 
         this.consensus.on('established', () => this.start());
     }
@@ -231,6 +242,23 @@ class PoolServer extends Nimiq.Observable {
         }
     }
 
+    _calculateHashrate() {
+        const shareDifficulty = this._totalShareDifficulty - this._lastShareDifficulty;
+        this._lastShareDifficulty = this._totalShareDifficulty;
+
+        const hashrate = shareDifficulty / (PoolServer.HASHRATE_INTERVAL / 1000) * Math.pow(2 ,16);
+        this._hashrates.push(Math.round(hashrate));
+        if (this._hashrates.length > 10) this._hashrates.shift();
+
+        let hashrateSum = 0;
+        for (const hr of this._hashrates) {
+            hashrateSum += hr;
+        }
+        this._averageHashrate = hashrateSum / this._hashrates.length;
+
+        Nimiq.Log.d(PoolServer, `Pool hashrate is ${Math.round(this._averageHashrate)} H/s (10 min average)`);
+    }
+
     /**
      * @param {number} userId
      * @param {number} deviceId
@@ -342,10 +370,18 @@ class PoolServer extends Nimiq.Observable {
     get totalShareDifficulty() {
         return this._totalShareDifficulty;
     }
+
+    /**
+     * @type {number}
+     */
+    get averageHashrate() {
+        return this._averageHashrate;
+    }
 }
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes
 PoolServer.UNBAN_IPS_INTERVAL = 1000 * 60; // 1 minute
 //TODO connection timeout!
 PoolServer.CONNECTION_TIMEOUT = 1000 * 60 * 3; // 3 min
+PoolServer.HASHRATE_INTERVAL = 1000 * 60 // 1 minute
 
 module.exports = exports = PoolServer;
