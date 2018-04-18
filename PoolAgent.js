@@ -360,6 +360,7 @@ class PoolAgent extends Nimiq.Observable {
     _recalcDifficulty() {
         clearTimeout(this._timeout);
         const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset);
+        Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerMinute.toFixed(2)} at difficulty ${this._difficulty}`);
         if (sharesPerMinute / this._pool.config.desiredSps > 2) {
             this._difficulty *= 1.5;
             this._regenerateExtraData();
