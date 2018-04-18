@@ -246,13 +246,18 @@ class PoolAgent extends Nimiq.Observable {
         const extraDataProof = Nimiq.MerklePath.unserialize(Nimiq.BufferUtils.fromBase64(msg.extraDataProof));
         const fullBlock = msg.block ? Nimiq.Block.unserialize(Nimiq.BufferUtils.fromBase64(msg.block)) : null;
 
+        // Check if the share was already submitted
+        if (await this._pool.containsShare(this._userId, hash)) {
+            throw new Error('Client submitted share twice');
+        }
+
         const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
         if (invalidReason !== null) {
             this._send({
                 message: PoolAgent.MESSAGE_ERROR,
                 reason: 'invalid share ' + invalidReason
             });
-            throw new Error('Client sent invalid share');
+            return;
         }
 
         // If we know a successor of the block mined onto, it does not make sense to mine onto that block anymore
@@ -298,11 +303,6 @@ class PoolAgent extends Nimiq.Observable {
      * @private
      */
     async _isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock) {
-        // Check if the share was already submitted
-        if (await this._pool.containsShare(this._userId, hash)) {
-            return 'already sent';
-        }
-
         // Check if we are the _miner or the share
         if (!(await minerAddrProof.computeRoot(this._pool.poolAddress)).equals(header.bodyHash)) {
             return 'miner address mismatch';
@@ -326,7 +326,7 @@ class PoolAgent extends Nimiq.Observable {
 
         // Check if the full block matches the header.
         if (fullBlock && !hash.equals(fullBlock.hash())) {
-            return 'invalid block';
+            throw new Error('full block announced but mismatches')
         }
 
         return null;
