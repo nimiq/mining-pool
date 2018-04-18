@@ -35,9 +35,9 @@ class PoolPayout extends Nimiq.Observable {
     async start() {
         this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
-            user: 'nimpool_payout',
+            user: 'pool_payout',
             password: this._mySqlPsw,
-            database: 'nimpool'
+            database: 'pool'
         });
         this.consensus.on('established', async () => {
             await this._processPayouts();

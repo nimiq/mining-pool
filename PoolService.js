@@ -35,9 +35,9 @@ class PoolService extends Nimiq.Observable {
     async start() {
         this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
-            user: 'nimpool_service',
+            user: 'pool_service',
             password: this._mySqlPsw,
-            database: 'nimpool'
+            database: 'pool'
         });
 
         this.consensus.blockchain.on('head-changed', (head) => this._distributePayinsForBlock(head));

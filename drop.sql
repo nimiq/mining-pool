@@ -1,5 +1,5 @@
-DROP DATABASE nimpool;
+DROP DATABASE pool;
 
-DROP USER 'nimpool_payout'@'localhost';
-DROP USER 'nimpool_service'@'localhost';
-DROP USER 'nimpool_server'@'localhost';
+DROP USER 'pool_payout'@'localhost';
+DROP USER 'pool_service'@'localhost';
+DROP USER 'pool_server'@'localhost';

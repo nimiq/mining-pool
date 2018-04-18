@@ -155,7 +155,7 @@ describe('PoolAgent', () => {
                 return Nimiq.SignatureProof.singleSig(usedKeyPair.publicKey, signature);
             }
 
-            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
+            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'pool', multipleStatements: true });
 
             /* // There currently is no signature required
             // garbage signature

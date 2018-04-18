@@ -87,9 +87,9 @@ class PoolServer extends Nimiq.Observable {
 
         this.connectionPool = await mysql.createPool({
             host: this._mySqlHost,
-            user: 'nimpool_server',
+            user: 'pool_server',
             password: this._mySqlPsw,
-            database: 'nimpool'
+            database: 'pool'
         });
 
         this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath);

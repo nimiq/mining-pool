@@ -9,7 +9,7 @@ describe('PoolPayout', () => {
 
     xit('processes payins', (done) => {
         (async () => {
-            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'nimpool', multipleStatements: true });
+            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'pool', multipleStatements: true });
             await connection.execute('INSERT INTO block (id, hash, height) VALUES (?, ?, ?)', [1, 'a', 1]);
             await connection.execute('INSERT INTO block (id, hash, height) VALUES (?, ?, ?)', [2, 'b', 2]);
 
