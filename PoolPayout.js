@@ -27,6 +27,9 @@ class PoolPayout extends Nimiq.Observable {
 
         /** @type {string} */
         this._mySqlHost = mySqlHost;
+
+        /** @type {Nimiq.Timers} */
+        this._timers = new Nimiq.Timers();
     }
 
     async start() {
@@ -38,8 +41,18 @@ class PoolPayout extends Nimiq.Observable {
         });
         this.consensus.on('established', async () => {
             await this._processPayouts();
-            process.exit(0);
+            this._timers.resetTimeout('wait-for-relayed', this._quit.bind(this), 30000);
+            this.consensus.on('transaction-relayed', (tx) => {
+                if (tx.sender.equals(this.wallet.address)) {
+                    this._timers.resetTimeout('wait-for-relayed', this._quit.bind(this), 10000);
+                }
+            });
         });
+    }
+
+    _quit() {
+        Nimiq.Log.i(PoolPayout, 'Finished, exiting now.');
+        process.exit(0);
     }
 
     async _processPayouts() {
@@ -62,8 +75,6 @@ class PoolPayout extends Nimiq.Observable {
             await this._payout(user, balance, true);
             await this._removePayoutRequest(userId);
         }
-
-        Nimiq.Log.i(PoolPayout, 'Finished, exiting now.');
     }
 
     /**
@@ -79,7 +90,7 @@ class PoolPayout extends Nimiq.Observable {
             Nimiq.Log.i(PoolPayout, `PAYING ${Nimiq.Policy.satoshisToCoins(txAmount)} NIM to ${recipientAddress.toUserFriendlyAddress()}`);
             const tx = this.wallet.createTransaction(recipientAddress, txAmount, fee, this.consensus.blockchain.height);
             await this._storePayout(recipientAddress, amount, Date.now(), tx.hash());
-            this.consensus.mempool.pushTransaction(tx);
+            await this.consensus.mempool.pushTransaction(tx);
 
             // TODO remove payouts that are never mined into a block
         }
