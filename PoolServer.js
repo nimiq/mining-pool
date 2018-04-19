@@ -1,6 +1,6 @@
 const Nimiq = require('../core/dist/node.js');
 const https = require('https');
-const WebSocket = require('ws');
+const WebSocket = require('uws');
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 
