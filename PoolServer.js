@@ -380,8 +380,6 @@ class PoolServer extends Nimiq.Observable {
 }
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes
 PoolServer.UNBAN_IPS_INTERVAL = 1000 * 60; // 1 minute
-//TODO connection timeout!
-PoolServer.CONNECTION_TIMEOUT = 1000 * 60 * 3; // 3 min
-PoolServer.HASHRATE_INTERVAL = 1000 * 60 // 1 minute
+PoolServer.HASHRATE_INTERVAL = 1000 * 60; // 1 minute
 
 module.exports = exports = PoolServer;

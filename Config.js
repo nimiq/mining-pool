@@ -16,6 +16,7 @@ const TAG = 'Config';
  * @property {number} minDifficulty
  * @property {number} spsTimeUnit
  * @property {number} desiredSps
+ * @property {number} connectionTimeout
  */
 
 /**
@@ -55,7 +56,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         networkFee: 1, // satoshi per byte
         minDifficulty: 1,
         spsTimeUnit: 60000, // 1 minute
-        desiredSps: 0.2 // desired shares per second
+        desiredSps: 0.2, // desired shares per second
+        connectionTimeout: 60 * 1000 * 10 // 10 minutes
     },
     poolServer: {
         enabled: false,
@@ -114,7 +116,8 @@ const CONFIG_TYPES = {
             networkFee: 'number',
             minDifficulty: 'number',
             spsTimeUnit: 'number',
-            desiredSps: 'number'
+            desiredSps: 'number',
+            connectionTimeout: 'number'
         }
     },
     poolServer: {

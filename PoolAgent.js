@@ -24,6 +24,10 @@ class PoolAgent extends Nimiq.Observable {
 
         /** @type {boolean} */
         this._registered = false;
+
+        /** @type {Nimiq.Timers} */
+        this._timers = new Nimiq.Timers();
+        this._timers.resetTimeout('connection-timeout', () => this._onError(), this._pool.config.connectionTimeout);
     }
 
     /**
@@ -100,6 +104,8 @@ class PoolAgent extends Nimiq.Observable {
                 if (this._sharesSinceReset > 3 && 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset) > this._pool.config.desiredSps * 2) {
                     this._recalcDifficulty();
                 }
+
+                this._timers.resetTimeout('connection-timeout', () => this._onError(), this._pool.config.connectionTimeout);
                 break;
             }
             case PoolAgent.MESSAGE_PAYOUT: {
