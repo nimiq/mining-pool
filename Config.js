@@ -9,7 +9,7 @@ const TAG = 'Config';
  * @typedef {object} PoolConfig
  * @property {string} name
  * @property {string} address
- * @property {number} payoutConfirmations: number
+ * @property {number} payoutConfirmations
  * @property {number} autoPayOutLimit
  * @property {number} poolFee
  * @property {number} networkFee
@@ -17,6 +17,7 @@ const TAG = 'Config';
  * @property {number} spsTimeUnit
  * @property {number} desiredSps
  * @property {number} connectionTimeout
+ * @property {number} pplnsShares
  */
 
 /**
@@ -57,7 +58,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         minDifficulty: 1,
         spsTimeUnit: 60000, // 1 minute
         desiredSps: 0.2, // desired shares per second
-        connectionTimeout: 60 * 1000 * 10 // 10 minutes
+        connectionTimeout: 60 * 1000 * 10, // 10 minutes
+        pplnsShares: 1000
     },
     poolServer: {
         enabled: false,
@@ -117,7 +119,8 @@ const CONFIG_TYPES = {
             minDifficulty: 'number',
             spsTimeUnit: 'number',
             desiredSps: 'number',
-            connectionTimeout: 'number'
+            connectionTimeout: 'number',
+            pplnsShares: 'number'
         }
     },
     poolServer: {

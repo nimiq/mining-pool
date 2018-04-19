@@ -54,7 +54,7 @@ class PoolService extends Nimiq.Observable {
         Nimiq.Log.d(PoolService, 'Miner addr ' + block.minerAddr.toUserFriendlyAddress() + ' our ' + this.poolAddress.toUserFriendlyAddress());
         if (block.minerAddr.equals(this.poolAddress)) {
             const blockId = await Helper.getStoreBlockId(this.connectionPool, block.hash(), block.height);
-            const [difficultyByAddress, totalDifficulty] = await this._getLastNShares(block, 1000);
+            const [difficultyByAddress, totalDifficulty] = await this._getLastNShares(block, this._config.pplnsShares);
             let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
             Nimiq.Log.i(PoolService, `Distributing payable value of ${Nimiq.Policy.satoshisToCoins(payableBlockReward)} NIM to ${difficultyByAddress.size} users`);
             for (const addr of difficultyByAddress.keys()) {
