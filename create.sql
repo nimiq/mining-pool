@@ -24,6 +24,7 @@ CREATE TABLE pool.share (
   id           INTEGER    PRIMARY KEY NOT NULL AUTO_INCREMENT,
   user         INTEGER    NOT NULL REFERENCES pool.user(id),
   device       INTEGER    UNSIGNED NOT NULL,
+  datetime     BIGINT     NOT NULL,
   prev_block   INTEGER    NOT NULL REFERENCES pool.block(id),
   difficulty   DOUBLE     NOT NULL,
   hash         BINARY(32) NOT NULL UNIQUE
