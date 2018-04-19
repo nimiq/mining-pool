@@ -35,7 +35,8 @@ class Helper {
                     (
                         SELECT id, height
                         FROM block
-                        WHERE height <= ?
+                        WHERE main_chain=true
+                        AND height <= ?
                     ) t4
                     ON t4.id = t3.block
                 )
