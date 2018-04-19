@@ -104,7 +104,6 @@ class PoolAgent extends Nimiq.Observable {
                 if (this._sharesSinceReset > 3 && 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset) > this._pool.config.desiredSps * 2) {
                     this._recalcDifficulty();
                 }
-
                 this._timers.resetTimeout('connection-timeout', () => this._onError(), this._pool.config.connectionTimeout);
                 break;
             }
@@ -144,7 +143,7 @@ class PoolAgent extends Nimiq.Observable {
 
         this._sharesSinceReset = 0;
         this._lastReset = Date.now();
-        this._timeout = setTimeout(() => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
+        this._timers.setTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
         this._userId = await this._pool.getStoreUserId(this._address);
         this._regenerateNonce();
         this._regenerateExtraData();
@@ -159,7 +158,7 @@ class PoolAgent extends Nimiq.Observable {
             this._pool.requestCurrentHead(this);
         }
         await this.sendBalance();
-        this._sendBalanceInterval = setInterval(() => this.sendBalance(), 1000 * 60 * 2);
+        this._timers.setInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 2);
 
         Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
@@ -364,7 +363,7 @@ class PoolAgent extends Nimiq.Observable {
      * To reduce network traffic, we set the minimum share difficulty for a user according to their number of shares in the last SPS_TIME_UNIT
      */
     _recalcDifficulty() {
-        clearTimeout(this._timeout);
+        this._timers.clearTimeout('recalc-difficulty');
         const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset);
         Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerMinute.toFixed(2)} at difficulty ${this._difficulty}`);
         if (sharesPerMinute / this._pool.config.desiredSps > 2) {
@@ -378,7 +377,7 @@ class PoolAgent extends Nimiq.Observable {
         }
         this._sharesSinceReset = 0;
         this._lastReset = Date.now();
-        this._timeout = setTimeout(() => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
+        this._timers.setTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
     }
 
     _sendSettings() {
@@ -423,8 +422,7 @@ class PoolAgent extends Nimiq.Observable {
     _onClose() {
         this._offAll();
 
-        clearInterval(this._sendBalanceInterval);
-        clearTimeout(this._timeout);
+        this._timers.clearAll();
         this._pool.removeAgent(this);
     }
 
