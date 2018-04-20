@@ -76,24 +76,14 @@ class PoolService extends Nimiq.Observable {
             SELECT user, SUM(difficulty) AS difficulty_sum
             FROM
             (
-                SELECT *
-                FROM
-                (
-                    (
-                        SELECT user, difficulty, prev_block FROM share
-                    ) t1
-                    INNER JOIN
-                    (
-                        SELECT * FROM block
-                        WHERE main_chain=true AND height<=?
-                    ) t2
-                    ON t1.prev_block=t2.id
-                )
-                ORDER BY height DESC
+                SELECT user, difficulty
+                FROM share s
+                INNER JOIN block b ON b.id = s.prev_block
+                WHERE b.main_chain = true AND b.height <= ?
+                ORDER BY b.height DESC
                 LIMIT ?
-            ) t3
-            GROUP BY user
-            `;
+            ) t1
+            GROUP BY user`;
         const queryArgs = [lastBlock.height, n];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
@@ -110,7 +100,7 @@ class PoolService extends Nimiq.Observable {
      * @param {Nimiq.Address} userAddress
      * @param {number} amount
      * @param {number} datetime
-     * @param {Nimiq.Block} blockId
+     * @param {number} blockId
      * @private
      */
     async _storePayin(userAddress, amount, datetime, blockId) {

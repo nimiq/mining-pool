@@ -105,34 +105,21 @@ class PoolPayout extends Nimiq.Observable {
             SELECT t1.user AS user, IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum
             FROM (
                 (
-                    SELECT user, block, SUM(amount) AS payin_sum
-                    FROM (
-                        (
-                            SELECT user, block, amount
-                            FROM payin
-                        ) t3
-                        INNER JOIN
-                        (
-                            SELECT id, height
-                            FROM block
-                            WHERE main_chain=true
-                            ORDER BY height DESC
-                        ) t4
-                        ON t4.id = t3.block
-                    )
-                    WHERE height <= ?
-                    GROUP BY user
+                    SELECT user, SUM(amount) AS payin_sum
+                    FROM payin p
+                    INNER JOIN block b ON b.id = p.block
+                    WHERE b.main_chain = true AND b.height <= ?
+                    GROUP BY p.user
                 ) t1
-                LEFT JOIN 
+                LEFT JOIN
                 (
                     SELECT user, SUM(amount) AS payout_sum
                     FROM payout
                     GROUP BY user
                 ) t2
-                ON t1.user = t2.user
+                ON t2.user = t1.user
             )
-            WHERE payin_sum - IFNULL(payout_sum, 0) > ?
-        `;
+            WHERE payin_sum - IFNULL(payout_sum, 0) > ?`;
         const queryArgs = [this.consensus.blockchain.height - this._config.payoutConfirmations, this._config.autoPayOutLimit];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
@@ -170,22 +157,11 @@ class PoolPayout extends Nimiq.Observable {
 
     async _validatePayins() {
         const query = `
-            SELECT hash, SUM(amount) AS payin_sum
-            FROM (
-                (
-                    SELECT user, block, amount
-                    FROM payin
-                ) t3
-                INNER JOIN
-                (
-                    SELECT id, hash
-                    FROM block
-                    WHERE main_chain=true
-                ) t4
-                ON t4.id = t3.block
-            )
-            GROUP BY block
-        `;
+            SELECT b.hash AS hash, SUM(p.amount) AS payin_sum
+            FROM payin p
+            INNER JOIN block b ON b.id = p.block
+            WHERE b.main_chain = true
+            GROUP BY p.block`;
         const [rows, fields] = await this.connectionPool.execute(query);
 
         for (const row of rows) {
