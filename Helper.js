@@ -21,35 +21,22 @@ class Helper {
      */
     static async getUserBalance(config, connectionPool, userId, currChainHeight, includeVirtual = false) {
         const query = `
-        SELECT t1.user AS user, IFNULL(payin_sum, 0) - IFNULL(payout_sum, 0) AS balance
-        FROM (
-            (
-                SELECT user, SUM(amount) AS payin_sum
-                FROM (
-                    (
-                        SELECT user, block, amount
-                        FROM payin
-                        WHERE user=?
-                    ) t3
-                    INNER JOIN
-                    (
-                        SELECT id, height
-                        FROM block
-                        WHERE main_chain=true
-                        AND height <= ?
-                    ) t4
-                    ON t4.id = t3.block
-                )
-            ) t1
-            LEFT JOIN
-            (
-                SELECT user, SUM(amount) AS payout_sum
-                FROM payout
-                WHERE user=?
-            ) t2
-            ON t1.user = t2.user
-        )
-        `;
+            SELECT IFNULL(payin_sum, 0) - IFNULL(payout_sum, 0) AS balance
+            FROM (
+                (
+                    SELECT user, SUM(amount) AS payin_sum
+                    FROM payin p
+                    INNER JOIN block b ON b.id = p.block
+                    WHERE p.user = ? AND b.main_chain = true AND b.height <= ?
+                ) t1
+                LEFT JOIN
+                (
+                    SELECT user, SUM(amount) AS payout_sum
+                    FROM payout
+                    WHERE user = ?
+                ) t2
+                ON t2.user = t1.user
+            )`;
         const queryHeight = includeVirtual ? currChainHeight : currChainHeight - config.payoutConfirmations;
         const queryArgs = [userId, queryHeight, userId];
         const [rows, fields] = await connectionPool.execute(query, queryArgs);
