@@ -2,7 +2,7 @@
 
 > **Important: Running a mining-pool in the mainnet means you are responsible for other people's money**
 >
-> By running a mining-pool in the mainnet, your are resonsible for other people's money and are responsible for paying it out, or you will become liable for their losses. Always test your pool implementation and server in the testnet, that is what the testnet is for.
+> By running a mining-pool in the mainnet, your are responsible for other people's money and are responsible for paying it out, or you will become liable for their losses. Always test your pool implementation and server in the testnet, that is what the testnet is for.
 
 ## Requirements
 * An internet-accessible domain with a valid SSL certificate
@@ -52,13 +52,13 @@ The following general parameters can be configured:
 | --- | --- |
 | name | The name of your pool, will be written into the extra data field of mined blocks |
 | address | Your pool's user-friendly address |
-| payoutConfirmations | How many confirmations are requried for user's balance to be confirmed |
+| payoutConfirmations | How many confirmations are required for user's balance to be confirmed |
 | autoPayOutLimit | Minimum confirmed balance in nimtoshis for auto-payouts |
 | poolFee | Pool fee, in 1/100: 1% = 0.01 |
 | networkFee | Nimtoshis per byte to set as transaction fee for payouts |
-| minDifficulty | Minimum share difficulty for connected clients. The share difficulty is adjusted to closely match the `desiredSps` |
+| minDifficulty | Minimum share difficulty for connected clients. The share difficulty is adjusted automatically to closely match the `desiredSps` |
 | spsTimeUnit | How often SPS are evaluated, in milliseconds |
-| desiredSps | Desired shares-per-second for connected miners. The share difficulty is adjusted accordingly. |
+| desiredSps | Desired shares-per-second for connected miners. The share difficulty is automatically adjusted accordingly. |
 
 ### Server
 | Parameter | Description |
