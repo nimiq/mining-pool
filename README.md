@@ -34,7 +34,9 @@ The payout process is meant to be run separately from the other processes and re
 
 ### General
 The following general parameters can be configured:
+
 | Parameter | Description |
+| --- | --- |
 | name | The name of your pool, will be written into the extra data field of mined blocks |
 | address | Your pool's user-friendly address |
 | payoutConfirmations | How many confirmations are requried for user's balance to be confirmed |
@@ -47,6 +49,7 @@ The following general parameters can be configured:
 
 ### Server
 | Parameter | Description |
+| --- | --- |
 | enabled | If server should be enabled, propably `true` |
 | port | On which port miners should connect |
 | sslCertPath | Path to your SSL cert or fullchain |
@@ -56,12 +59,14 @@ The following general parameters can be configured:
 
 ### Service
 | Parameter | Description |
+| --- | --- |
 | enabled | If service should be enabled, propably `true` |
 | mySqlPsw | The password of the `pool_service` MySQL user, if any |
 | mySqlHost | The host of the MySQL server, usually `localhost` |
 
 ### Payout
 | Parameter | Description |
+| --- | --- |
 | enabled | If payout should be enabled, propably `true` in the payout config |
 | mySqlPsw | The password of the `pool_payout` MySQL user, if any |
 | mySqlHost | The host of the MySQL server, usually `localhost` |
