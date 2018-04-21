@@ -48,41 +48,44 @@ describe('PoolAgent', () => {
     it('verifies shares (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
             await poolServer.start();
-            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: (msg) => { on_msg(msg); }, _socket: { remoteAddress: '1.2.3.4' } });
 
-            let fixFakeTime = 0;
             const time = new Nimiq.Time();
-            spyOn(time, 'now').and.callFake(() => fixFakeTime);
+            spyOn(time, 'now').and.callFake(() => 0);
 
-            spyOn(poolAgent, '_send').and.callFake(async (msg) => {
-                if (msg.message === 'settings') {
-                    const poolAddress = Nimiq.Address.fromUserFriendlyAddress(msg.address);
-                    const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
-                    const target = parseFloat(msg.target);
+            const poolAgent = new PoolAgent(poolServer, {
+                _socket: { remoteAddress: '1.2.3.4' },
+                close: () => {},
+                send: async (json) => {
+                    const msg = JSON.parse(json);
+                    if (msg.message === 'settings') {
+                        const poolAddress = Nimiq.Address.fromUserFriendlyAddress(msg.address);
+                        const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
+                        const target = parseFloat(msg.target);
 
-                    let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
+                        let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
 
-                    // valid share
-                    let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
-                    await poolAgent._onMessage(shareMsg);
-                    let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
+                        // valid share
+                        let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
+                        await poolAgent._onMessage(shareMsg);
+                        let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                        expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
 
-                    // wrong miner address
-                    shareMsg = await generateBlockMessage(Nimiq.Address.fromUserFriendlyAddress('NQ57 LUAL 6R8F ETD3 VE77 6NK5 HEUK 009H C06B'), extraData, time, target);
-                    await poolAgent._onMessageData(JSON.stringify(shareMsg));
-                    hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
+                        // wrong miner address
+                        shareMsg = await generateBlockMessage(Nimiq.Address.fromUserFriendlyAddress('NQ57 LUAL 6R8F ETD3 VE77 6NK5 HEUK 009H C06B'), extraData, time, target);
+                        await poolAgent._onMessageData(JSON.stringify(shareMsg));
+                        hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                        expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
 
-                    // wrong extra data
-                    shareMsg = await generateBlockMessage(poolAddress, Nimiq.BufferUtils.fromAscii('wrong'), time, target);
-                    await poolAgent._onMessageData(JSON.stringify(shareMsg));
-                    hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
+                        // wrong extra data
+                        shareMsg = await generateBlockMessage(poolAddress, Nimiq.BufferUtils.fromAscii('wrong'), time, target);
+                        await poolAgent._onMessageData(JSON.stringify(shareMsg));
+                        hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                        expect(await poolServer.containsShare(userId, hash)).toBeFalsy();
 
-                    done();
+                        done();
+                    }
                 }
             });
             await poolAgent._onMessage(NQ43sampleData.register);
@@ -92,35 +95,39 @@ describe('PoolAgent', () => {
     it('does not count shares onto old blocks (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
             await poolServer.start();
-            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: (msg) => { on_msg(msg); }, _socket: { remoteAddress: '1.2.3.4' } });
 
             let fixFakeTime = 0;
             const time = new Nimiq.Time();
             spyOn(time, 'now').and.callFake(() => fixFakeTime);
 
-            spyOn(poolAgent, '_send').and.callFake(async (msg) => {
-                if (msg.message === 'settings') {
-                    const poolAddress = Nimiq.Address.fromUserFriendlyAddress(msg.address);
-                    const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
-                    const target = parseFloat(msg.target);
+            const poolAgent = new PoolAgent(poolServer, {
+                _socket: { remoteAddress: '1.2.3.4' },
+                close: () => {},
+                send: async (json) => {
+                    const msg = JSON.parse(json);
+                    if (msg.message === 'settings') {
+                        const poolAddress = Nimiq.Address.fromUserFriendlyAddress(msg.address);
+                        const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
+                        const target = parseFloat(msg.target);
 
-                    let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
+                        let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
 
-                    // valid share
-                    let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
-                    await poolAgent._onMessage(shareMsg);
-                    let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
+                        // valid share
+                        let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
+                        await poolAgent._onMessage(shareMsg);
+                        let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                        expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
 
-                    fixFakeTime = 2000;
-                    shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
-                    await poolAgent._onMessage(shareMsg);
-                    hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
-                    expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
+                        fixFakeTime = 2000;
+                        shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
+                        await poolAgent._onMessage(shareMsg);
+                        hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                        expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
 
-                    done();
+                        done();
+                    }
                 }
             });
             await poolAgent._onMessage(NQ43sampleData.register);
