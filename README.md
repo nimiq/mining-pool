@@ -1,5 +1,9 @@
 # Nimiq Mining-Pool Server
 
+> **Important: Running a mining-pool in the mainnet means you are responsible for other people's money**
+>
+> By running a mining-pool in the mainnet, your are resonsible for other people's money and are responsible for paying it out, or you will become liable for their losses. Always test your pool implementation and server in the testnet, that is what the testnet is for.
+
 ## Requirements
 * An internet-accessible domain with a valid SSL certificate
 * A MySQL-compatible database, such as MySQL, MariaDB
@@ -28,6 +32,7 @@ The payout process is meant to be run separately from the other processes and re
 * The payout process needs to run with access to the same database as the server/service, but can potentially run on a separate server.
 * If all processes run on the same server, remember to separate their consensus databases by running them in different working directories.
 * To be able to send transactions, the payout process needs to know the private key of the pool wallet. Therefore you can either put the wallet seed into the payout config file or come up with other means to protect the pool's funds.
+* Transaction fees for automatic payouts above the `autoPayOutLimit` are paid by the pool. Thus you have to balance many and often payouts with the fees you pay for those payouts as the pool owner.
 
 ## Setup
 1. Clone the Nimiq core repository, checkout the `marvin/pool` branch and run `yarn` or `npm install`.
