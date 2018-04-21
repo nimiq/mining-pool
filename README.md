@@ -21,6 +21,14 @@ The service comes into action when a block is mined by the pool and distributes 
 ### Pool Payout
 The payout process is meant to be run separately from the other processes and relays payout transactions into the network according to user balances.
 
+## Important Tipps
+* Both the server/service and the separate payout processes need to be full nodes.
+* The payout process exits automatically after it finished, so it needs to be restarted for each payout. This is by design.
+* One way to run the payout regularily is to set up a CRON job for it.
+* The payout process needs to run with access to the same database as the server/service, but can potentially run on a separate server.
+* If all processes run on the same server, remember to separate their consensus databases by running them in different working directories.
+* To be able to send transactions, the payout process needs to know the private key of the pool wallet. Therefore you can either put the wallet seed into the payout config file or come up with other means to protect the pool's funds.
+
 ## Setup
 1. Clone the Nimiq core repository, checkout the `marvin/pool` branch and run `yarn` or `npm install`.
    (The core repository is expected to be accessible from the mining-pool directory as `../core/`.)
