@@ -84,7 +84,7 @@ class PoolPayout extends Nimiq.Observable {
      * @private
      */
     async _payout(recipientAddress, amount, deductFees) {
-        const fee = 138 * this._config.networkFee; // FIXME: Use from transaction 
+        const fee = 138 * this._config.networkFee; // FIXME: Use from transaction
         const txAmount = Math.floor(deductFees ? amount - fee : amount);
         if (txAmount > 0) {
             Nimiq.Log.i(PoolPayout, `PAYING ${Nimiq.Policy.satoshisToCoins(txAmount)} NIM to ${recipientAddress.toUserFriendlyAddress()}`);
@@ -102,7 +102,7 @@ class PoolPayout extends Nimiq.Observable {
      */
     async _getAutoPayouts() {
         const query = `
-            SELECT t1.user AS user, IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum
+            SELECT IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum, address
             FROM (
                 (
                     SELECT user, SUM(amount) AS payin_sum
@@ -118,14 +118,15 @@ class PoolPayout extends Nimiq.Observable {
                     GROUP BY user
                 ) t2
                 ON t2.user = t1.user
+                LEFT JOIN user t3 ON t3.id = t1.user
             )
-            WHERE payin_sum - IFNULL(payout_sum, 0) > ?`;
+            WHERE payin_sum - payout_sum > ?`;
         const queryArgs = [this.consensus.blockchain.height - this._config.payoutConfirmations, this._config.autoPayOutLimit];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         const ret = new Map();
         for (const row of rows) {
-            ret.set(await Helper.getUser(this.connectionPool, row.user), row.payin_sum - row.payout_sum);
+            ret.set(Nimiq.Address.fromBase64(row.address), row.payin_sum - row.payout_sum);
         }
         return ret;
     }
