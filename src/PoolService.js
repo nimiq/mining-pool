@@ -57,8 +57,8 @@ class PoolService extends Nimiq.Observable {
             const [difficultyByAddress, totalDifficulty] = await this._getLastNShares(block, this._config.pplnsShares);
             let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
             Nimiq.Log.i(PoolService, `Distributing payable value of ${Nimiq.Policy.satoshisToCoins(payableBlockReward)} NIM to ${difficultyByAddress.size} users`);
-            for (const addr of difficultyByAddress.keys()) {
-                const userReward = Math.floor(difficultyByAddress.get(addr) * payableBlockReward / totalDifficulty);
+            for (const [addr, difficulty] of difficultyByAddress) {
+                const userReward = Math.floor(difficulty * payableBlockReward / totalDifficulty);
                 await this._storePayin(addr, userReward, Date.now(), blockId);
             }
         }
@@ -77,10 +77,10 @@ class PoolService extends Nimiq.Observable {
             FROM
             (
                 SELECT user, difficulty
-                FROM share s
-                INNER JOIN block b ON b.id = s.prev_block
-                WHERE b.main_chain = true AND b.height <= ?
-                ORDER BY b.height DESC
+                FROM share
+                INNER JOIN block ON block.id = share.prev_block
+                WHERE block.main_chain = true AND block.height <= ?
+                ORDER BY block.height DESC
                 LIMIT ?
             ) t1
             GROUP BY user`;

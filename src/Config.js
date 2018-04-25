@@ -29,9 +29,9 @@ const TAG = 'Config';
  * @property {string} type
  * @property {string} network
  * @property {PoolConfig} pool
- * @property {{enabled: boolean, port: number, sslCertPath: string, sslKeyPath: string, mySqlPsw: string, mySqlHost: string} poolServer
- * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string} poolService
- * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string} poolPayout
+ * @property {{enabled: boolean, port: number, sslCertPath: string, sslKeyPath: string, mySqlPsw: string, mySqlHost: string}} poolServer
+ * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolService
+ * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolPayout
  * @property {{seed: string, address: string}} wallet
  * @property {{level: string, tags: object}} log
  * @property {Array.<{host: string, port: number, publicKey: string}>} seedPeers

@@ -62,34 +62,34 @@ class PoolPayout extends Nimiq.Observable {
         }
 
         const autoPayouts = await this._getAutoPayouts();
-        Nimiq.Log.i(PoolPayout, `Processing ${autoPayouts.size} auto payouts`);
-        for (const userAddress of autoPayouts.keys()) {
-            await this._payout(userAddress, autoPayouts.get(userAddress), false);
+        Nimiq.Log.i(PoolPayout, `Processing ${autoPayouts.length} auto payouts`);
+        for (const payout of autoPayouts) {
+            await this._payout(payout.userId, payout.userAddress, payout.amount, false);
         }
 
         const payoutRequests = await this._getPayoutRequests();
         Nimiq.Log.i(PoolPayout, `Processing ${payoutRequests.length} payout requests`);
-        for (const userId of payoutRequests) {
-            const balance = await Helper.getUserBalance(this._config, this.connectionPool, userId, this.consensus.blockchain.height);
-            const user = await Helper.getUser(this.connectionPool, userId);
-            await this._payout(user, balance, true);
-            await this._removePayoutRequest(userId);
+        for (const payoutRequest of payoutRequests) {
+            const balance = await Helper.getUserBalance(this._config, this.connectionPool, payoutRequest.userId, this.consensus.blockchain.height);
+            await this._payout(payoutRequest.userId, payoutRequest.userAddress, balance, true);
+            await this._removePayoutRequest(payoutRequest.userId);
         }
     }
 
     /**
+     * @param {number} recipientId
      * @param {Nimiq.Address} recipientAddress
      * @param {number} amount
      * @param {boolean} deductFees
      * @private
      */
-    async _payout(recipientAddress, amount, deductFees) {
-        const fee = 138 * this._config.networkFee; // FIXME: Use from transaction 
+    async _payout(recipientId, recipientAddress, amount, deductFees) {
+        const fee = 138 * this._config.networkFee; // FIXME: Use from transaction
         const txAmount = Math.floor(deductFees ? amount - fee : amount);
         if (txAmount > 0) {
             Nimiq.Log.i(PoolPayout, `PAYING ${Nimiq.Policy.satoshisToCoins(txAmount)} NIM to ${recipientAddress.toUserFriendlyAddress()}`);
             const tx = this.wallet.createTransaction(recipientAddress, txAmount, fee, this.consensus.blockchain.height);
-            await this._storePayout(recipientAddress, amount, Date.now(), tx.hash());
+            await this._storePayout(recipientId, amount, Date.now(), tx.hash());
             await this.consensus.mempool.pushTransaction(tx);
 
             // TODO remove payouts that are never mined into a block
@@ -97,19 +97,19 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     /**
-     * @returns {Promise.<Map.<Nimiq.Address,number>>}
+     * @returns {Promise.<Array.<{userAddress: Nimiq.Address, userId: number, amount: number}>>}
      * @private
      */
     async _getAutoPayouts() {
         const query = `
-            SELECT t1.user AS user, IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum
+            SELECT user.id AS user_id, user.address AS user_address, IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum
             FROM (
                 (
                     SELECT user, SUM(amount) AS payin_sum
-                    FROM payin p
-                    INNER JOIN block b ON b.id = p.block
-                    WHERE b.main_chain = true AND b.height <= ?
-                    GROUP BY p.user
+                    FROM payin
+                    INNER JOIN block ON block.id = payin.block
+                    WHERE block.main_chain = true AND block.height <= ?
+                    GROUP BY payin.user
                 ) t1
                 LEFT JOIN
                 (
@@ -118,29 +118,41 @@ class PoolPayout extends Nimiq.Observable {
                     GROUP BY user
                 ) t2
                 ON t2.user = t1.user
+                LEFT JOIN user ON user.id = t1.user
             )
             WHERE payin_sum - IFNULL(payout_sum, 0) > ?`;
-        const queryArgs = [this.consensus.blockchain.height - this._config.payoutConfirmations, this._config.autoPayOutLimit];
+        const blocksConfirmedHeight = this.consensus.blockchain.height - this._config.payoutConfirmations;
+        const queryArgs = [blocksConfirmedHeight, this._config.autoPayOutLimit];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
-        const ret = new Map();
+        const ret = [];
         for (const row of rows) {
-            ret.set(await Helper.getUser(this.connectionPool, row.user), row.payin_sum - row.payout_sum);
+            ret.push({
+                userAddress: Nimiq.Address.fromBase64(row.user_address),
+                userId: row.user_id,
+                amount: row.payin_sum - row.payout_sum
+            });
         }
         return ret;
     }
 
     /**
-     * @returns {Promise.<Array.<number>>}
+     * @returns {Promise.<Array.<{userAddress: Nimiq.Address, userId: number}>>}
      * @private
      */
     async _getPayoutRequests() {
-        const query = `SELECT * FROM payout_request`;
+        const query = `
+            SELECT user, address
+            FROM payout_request
+            LEFT JOIN user ON payout_request.user = user.id`;
         const [rows, fields] = await this.connectionPool.execute(query);
 
         let ret = [];
         for (const row of rows) {
-            ret.push(row.user);
+            ret.push({
+                userAddress: Nimiq.Address.fromBase64(row.address),
+                userId: row.user
+            });
         }
         return ret;
     }
@@ -157,11 +169,11 @@ class PoolPayout extends Nimiq.Observable {
 
     async _validatePayins() {
         const query = `
-            SELECT b.hash AS hash, SUM(p.amount) AS payin_sum
-            FROM payin p
-            INNER JOIN block b ON b.id = p.block
-            WHERE b.main_chain = true
-            GROUP BY b.hash`;
+            SELECT block.hash AS hash, SUM(payin.amount) AS payin_sum
+            FROM payin
+            INNER JOIN block ON block.id = payin.block
+            WHERE block.main_chain = true
+            GROUP BY block.hash`;
         const [rows, fields] = await this.connectionPool.execute(query);
 
         for (const row of rows) {
@@ -182,16 +194,16 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.Address} recipientAddress
+     * @param {number} userId
      * @param {number} amount
      * @param {number} datetime
      * @param {Nimiq.Hash} transactionHash
      * @returns {Promise.<void>}
      * @private
      */
-    async _storePayout(recipientAddress, amount, datetime, transactionHash) {
+    async _storePayout(userId, amount, datetime, transactionHash) {
         const query = 'INSERT INTO payout (user, amount, datetime, transaction) VALUES (?, ?, ?, ?)';
-        const queryArgs = [await Helper.getUserId(this.connectionPool, recipientAddress), amount, datetime, transactionHash.serialize()];
+        const queryArgs = [userId, amount, datetime, transactionHash.serialize()];
         await this.connectionPool.execute(query, queryArgs);
     }
 
