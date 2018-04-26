@@ -2,7 +2,7 @@ const fs = require('fs');
 const JSON5 = require('json5');
 const merge = require('lodash.merge');
 
-const Log = require('../core/dist/node.js').Log;
+const Log = require('../../core/dist/node.js').Log;
 const TAG = 'Config';
 
 /**

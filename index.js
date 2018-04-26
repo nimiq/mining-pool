@@ -1,11 +1,11 @@
 const Nimiq = require('../core/dist/node.js');
 const argv = require('minimist')(process.argv.slice(2));
-const config = require('./Config.js')(argv.config);
+const config = require('./src/Config.js')(argv.config);
 
-const PoolServer = require('./PoolServer.js');
-const PoolService = require('./PoolService.js');
-const PoolPayout = require('./PoolPayout.js');
-const MetricsServer = require('./MetricsServer.js');
+const PoolServer = require('./src/PoolServer.js');
+const PoolService = require('./src/PoolService.js');
+const PoolPayout = require('./src/PoolPayout.js');
+const MetricsServer = require('./src/MetricsServer.js');
 
 const START = Date.now();
 const TAG = 'Node';

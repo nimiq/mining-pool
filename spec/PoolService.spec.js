@@ -3,9 +3,9 @@ const mysql = require('mysql2/promise');
 
 const Nimiq = require('../../core/dist/node.js');
 
-const PoolAgent = require('../PoolAgent.js');
-const PoolServer = require('../PoolServer.js');
-const PoolService = require('../PoolService.js');
+const PoolAgent = require('../src/PoolAgent.js');
+const PoolServer = require('../src/PoolServer.js');
+const PoolService = require('../src/PoolService.js');
 
 describe('PoolService', () => {
 

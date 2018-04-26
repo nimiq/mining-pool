@@ -6,7 +6,7 @@ NETCONFIG = new Nimiq.WsNetworkConfig('node1.test', 9000, 'key1', 'cert1');
 NETCONFIG._keyPair = Nimiq.KeyPair.fromHex('ab05e735f870ff4482a997eab757ea78f8a83356ea443ac68969824184b82903a5ea83e7ee0c8c7ad863c3ceffd31a63679e1ea34a5f89e3ae0f90c5d281d4a900');
 
 /** @type {PoolConfig} */
-POOL_CONFIG = require('../Config.js').DEFAULT_CONFIG.pool;
+POOL_CONFIG = require('../src/Config.js').DEFAULT_CONFIG.pool;
 POOL_CONFIG.name = 'Test Pool';
 POOL_CONFIG.address = 'NQ10 G2P1 GKKY TMUX YLRH BF8D 499N LD9G B1HX';
 
@@ -35,7 +35,7 @@ Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS['tests']);
 beforeEach((done) => {
     (async () => {
         try {
-            let data = fs.readFileSync('drop.sql', 'utf8');
+            let data = fs.readFileSync('./sql/drop.sql', 'utf8');
             connection = await mysql.createConnection({
                 host: 'localhost',
                 user: 'root',
@@ -47,7 +47,7 @@ beforeEach((done) => {
             Nimiq.Log.w('Spec', e);
         }
 
-        data = fs.readFileSync('create.sql', 'utf8');
+        data = fs.readFileSync('./sql/create.sql', 'utf8');
         connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
         await connection.query(data);
 

@@ -1,4 +1,4 @@
-const Nimiq = require('../core/dist/node.js');
+const Nimiq = require('../../core/dist/node.js');
 
 class Helper {
 

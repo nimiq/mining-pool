@@ -1,8 +1,8 @@
 # Nimiq Mining-Pool Server
 
-> **Important: Running a mining-pool in the mainnet means you are responsible for other people's money**
+> **Important: Running a mining pool in the mainnet means you are responsible for other people's money!**
 >
-> By running a mining-pool in the mainnet, your are responsible for other people's money and are responsible for paying it out, or you will become liable for their losses. Always test your pool implementation and server in the testnet, that is what the testnet is for.
+> By running a mining pool in the mainnet, your are responsible for other people's money and are responsible for paying it out, or you will become liable for their losses. Always test your pool implementation and server in the testnet, that is what the testnet is for.
 
 ## Requirements
 * An internet-accessible domain with a valid SSL certificate
@@ -25,7 +25,7 @@ The service comes into action when a block is mined by the pool and distributes 
 ### Pool Payout
 The payout process is meant to be run separately from the other processes and relays payout transactions into the network according to user balances.
 
-## Important Tipps
+## Important Tips
 * Both the server/service and the separate payout processes need to be full nodes.
 * The payout process exits automatically after it finished, so it needs to be restarted for each payout. This is by design.
 * One way to run the payout regularily is to set up a CRON job for it.
@@ -38,7 +38,7 @@ The payout process is meant to be run separately from the other processes and re
 1. Clone the Nimiq core repository, checkout the `marvin/pool` branch and run `yarn` or `npm install`.
    (The core repository is expected to be accessible from the mining-pool directory as `../core/`.)
 2. Clone this `mining-pool` repository
-3. Execute `create.sql` on your database engine. It sets up the database, tables and users.
+3. Execute `sql/create.sql` on your database engine. It sets up the database, tables and users.
 4. Configure the PoolServer, the PoolService and the PoolPayout.
    The PoolServer and PoolService can be run together in one process; combine their configs for this.
 5. Run `mining-pool/index.js --config <your config file>` to start the respective server/service/payout.
@@ -57,8 +57,8 @@ The following general parameters can be configured:
 | poolFee | Pool fee, in 1/100: 1% = 0.01 |
 | networkFee | Nimtoshis per byte to set as transaction fee for payouts |
 | minDifficulty | Minimum share difficulty for connected clients. The share difficulty is adjusted automatically to closely match the `desiredSps` |
+| desiredSps | Desired shares-per-second (SPS) for connected miners. The share difficulty is automatically adjusted accordingly. |
 | spsTimeUnit | How often SPS are evaluated, in milliseconds |
-| desiredSps | Desired shares-per-second for connected miners. The share difficulty is automatically adjusted accordingly. |
 
 ### Server
 | Parameter | Description |

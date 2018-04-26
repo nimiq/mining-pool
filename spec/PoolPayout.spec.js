@@ -3,7 +3,7 @@ const mysql = require('mysql2/promise');
 
 const Nimiq = require('../../core/dist/node.js');
 
-const PoolPayout = require('../PoolPayout.js');
+const PoolPayout = require('../src/PoolPayout.js');
 
 describe('PoolPayout', () => {
 

@@ -1,4 +1,4 @@
-const Nimiq = require('../core/dist/node.js');
+const Nimiq = require('../../core/dist/node.js');
 const mysql = require('mysql2/promise');
 
 const Helper = require('./Helper.js');
@@ -161,7 +161,7 @@ class PoolPayout extends Nimiq.Observable {
             FROM payin p
             INNER JOIN block b ON b.id = p.block
             WHERE b.main_chain = true
-            GROUP BY p.block`;
+            GROUP BY b.hash`;
         const [rows, fields] = await this.connectionPool.execute(query);
 
         for (const row of rows) {
@@ -172,7 +172,7 @@ class PoolPayout extends Nimiq.Observable {
                 Nimiq.Log.e(PoolPayout, `Wrong miner address in block ${block.hash()}`);
                 return false;
             }
-            let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
+            const payableBlockReward = Helper.getPayableBlockReward(this._config, block);
             if (row.payin_sum > payableBlockReward) {
                 Nimiq.Log.e(PoolPayout, `Stored payins are greater than the payable block reward for block ${block.hash()}`);
                 return false;
