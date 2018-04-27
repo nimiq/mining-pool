@@ -1,7 +1,7 @@
 const fs = require('fs');
 const https = require('https');
 const btoa = require('btoa');
-const Nimiq = require('../../core/dist/node.js');
+const Nimiq = require('@nimiq/core');
 
 class MetricsServer {
     constructor(sslKeyPath, sslCertPath, port, password) {

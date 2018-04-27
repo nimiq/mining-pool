@@ -1,6 +1,6 @@
 const mysql = require('mysql2/promise');
 
-const Nimiq = require('../../core/dist/node.js');
+const Nimiq = require('@nimiq/core');
 
 const PoolAgent = require('../src/PoolAgent.js');
 const PoolServer = require('../src/PoolServer.js');

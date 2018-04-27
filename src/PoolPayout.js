@@ -1,4 +1,4 @@
-const Nimiq = require('../../core/dist/node.js');
+const Nimiq = require('@nimiq/core');
 const mysql = require('mysql2/promise');
 
 const Helper = require('./Helper.js');

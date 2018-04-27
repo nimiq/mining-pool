@@ -1,4 +1,4 @@
-const Nimiq = require('../../core/dist/node.js');
+const Nimiq = require('@nimiq/core');
 const https = require('https');
 const WebSocket = require('uws');
 const mysql = require('mysql2/promise');

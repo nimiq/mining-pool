@@ -1,4 +1,4 @@
-const Nimiq = require('../../core/dist/node.js');
+const Nimiq = require('@nimiq/core');
 
 class PoolAgent extends Nimiq.Observable {
     constructor(pool, ws) {
