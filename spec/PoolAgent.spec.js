@@ -134,6 +134,40 @@ describe('PoolAgent', () => {
         })().catch(done.fail);
     });
 
+    it('bans clients with too many invalid shares', (done) => {
+        (async () => {
+            const consensus = await Nimiq.Consensus.volatileFull();
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
+            await poolServer.start();
+            const time = new Nimiq.Time();
+            spyOn(time, 'now').and.callFake(() => 0);
+
+            const poolAgent = new PoolAgent(poolServer, {
+                _socket: { remoteAddress: '1.2.3.4' },
+                close: () => { },
+                send: async (json) => {
+                    const msg = JSON.parse(json);
+                    if (msg.message === 'settings') {
+                        const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
+                        const target = parseFloat(msg.target);
+
+                        poolServer.config.allowedErrors = 2;
+
+                        expect(poolServer.numIpsBanned).toEqual(0);
+                        for (let i = 0; i < poolServer.config.allowedErrors + 1; i++) {
+                            // wrong miner address, won't be stored and won't ban instantly
+                            shareMsg = await generateBlockMessage(Nimiq.Address.fromUserFriendlyAddress('NQ57 LUAL 6R8F ETD3 VE77 6NK5 HEUK 009H C06B'), extraData, time, target);
+                            await poolAgent._onMessageData(JSON.stringify(shareMsg));
+                        }
+                        expect(poolServer.numIpsBanned).toEqual(1);
+                        done();
+                    }
+                }
+            });
+            await poolAgent._onMessage(NQ43sampleData.register);
+        })().catch(done.fail);
+    });
+
     it('handles payout requests', (done) => {
         (async () => {
             const keyPair = Nimiq.KeyPair.generate();

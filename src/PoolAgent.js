@@ -20,7 +20,10 @@ class PoolAgent extends Nimiq.Observable {
         this._sharesSinceReset = 0;
 
         /** @type {number} */
-        this._lastReset = 0;
+        this._lastSpsReset = 0;
+
+        /** @type {number} */
+        this._errorsSinceReset = 0;
 
         /** @type {boolean} */
         this._registered = false;
@@ -51,6 +54,7 @@ class PoolAgent extends Nimiq.Observable {
             accountsHash: Nimiq.BufferUtils.toBase64(accountsHash.serialize()),
             previousBlock: Nimiq.BufferUtils.toBase64(prevBlock.serialize())
         });
+        this._errorsSinceReset = 0;
     }
 
     async sendBalance() {
@@ -101,7 +105,7 @@ class PoolAgent extends Nimiq.Observable {
                     await this._onSmartShareMessage(msg);
                 }
                 this._sharesSinceReset++;
-                if (this._sharesSinceReset > 3 && 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset) > this._pool.config.desiredSps * 2) {
+                if (this._sharesSinceReset > 3 && 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastSpsReset) > this._pool.config.desiredSps * 2) {
                     this._recalcDifficulty();
                 }
                 this._timers.resetTimeout('connection-timeout', () => this._onError(), this._pool.config.connectionTimeout);
@@ -119,6 +123,11 @@ class PoolAgent extends Nimiq.Observable {
      * @private
      */
     async _onRegisterMessage(msg) {
+        if (this._registered) {
+            this._sendError('already registered');
+            return;
+        }
+
         this._address = Nimiq.Address.fromUserFriendlyAddress(msg.address);
         this._deviceId = msg.deviceId;
         switch (msg.mode) {
@@ -134,16 +143,13 @@ class PoolAgent extends Nimiq.Observable {
 
         const genesisHash = Nimiq.Hash.unserialize(Nimiq.BufferUtils.fromBase64(msg.genesisHash));
         if (!genesisHash.equals(Nimiq.GenesisConfig.GENESIS_HASH)) {
-            this._send({
-                message: PoolAgent.MESSAGE_ERROR,
-                reason: 'different genesis block'
-            });
+            this._sendError('different genesis block');
             throw new Error('Client has different genesis block');
         }
 
         this._sharesSinceReset = 0;
-        this._lastReset = Date.now();
-        this._timers.setTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
+        this._lastSpsReset = Date.now();
+        this._timers.resetTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
         this._userId = await this._pool.getStoreUserId(this._address);
         this._regenerateNonce();
         this._regenerateExtraData();
@@ -158,7 +164,7 @@ class PoolAgent extends Nimiq.Observable {
             this._pool.requestCurrentHead(this);
         }
         await this.sendBalance();
-        this._timers.setInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 2);
+        this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 2);
 
         Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
@@ -172,17 +178,10 @@ class PoolAgent extends Nimiq.Observable {
         const block = lightBlock.toFull(this._currentBody);
         const hash = block.hash();
 
-        // Check if the share was already submitted
-        if (await this._pool.containsShare(this._userId, hash)) {
-            throw new Error('Client submitted share twice');
-        }
-
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason !== null) {
-            this._send({
-                message: PoolAgent.MESSAGE_ERROR,
-                reason: 'invalid share ' + invalidReason
-            });
+            this._sendError('invalid share: ' + invalidReason);
+            this._countNewError();
             return;
         }
 
@@ -207,6 +206,11 @@ class PoolAgent extends Nimiq.Observable {
      * @private
      */
     async _isNanoShareValid(block, hash) {
+        // Check if the share was already submitted
+        if (await this._pool.containsShare(this._userId, hash)) {
+            throw new Error('Client submitted share twice');
+        }
+
         // Check if the body hash is the one we've sent
         if (!block.header.bodyHash.equals(this._currentBody.hash())) {
             return 'wrong body hash';
@@ -251,17 +255,10 @@ class PoolAgent extends Nimiq.Observable {
         const extraDataProof = Nimiq.MerklePath.unserialize(Nimiq.BufferUtils.fromBase64(msg.extraDataProof));
         const fullBlock = msg.block ? Nimiq.Block.unserialize(Nimiq.BufferUtils.fromBase64(msg.block)) : null;
 
-        // Check if the share was already submitted
-        if (await this._pool.containsShare(this._userId, hash)) {
-            throw new Error('Client submitted share twice');
-        }
-
         const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
         if (invalidReason !== null) {
-            this._send({
-                message: PoolAgent.MESSAGE_ERROR,
-                reason: 'invalid share ' + invalidReason
-            });
+            this._sendError('invalid share: ' + invalidReason);
+            this._countNewError();
             return;
         }
 
@@ -270,10 +267,7 @@ class PoolAgent extends Nimiq.Observable {
         if (prevBlock !== null) {
             const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(prevBlock, true);
             if (successors.length > 0) {
-                this._send({
-                    message: PoolAgent.MESSAGE_ERROR,
-                    reason: 'too old'
-                });
+                this._sendError('too old');
                 return;
             }
         }
@@ -281,10 +275,7 @@ class PoolAgent extends Nimiq.Observable {
         const nextTarget = await this._pool.consensus.blockchain.getNextTarget(prevBlock);
         if (Nimiq.BlockUtils.isProofOfWork(await header.pow(), nextTarget)) {
             if (fullBlock && (await this._pool.consensus.blockchain.pushBlock(fullBlock)) === Nimiq.FullChain.ERR_INVALID) {
-                this._send({
-                    message: PoolAgent.MESSAGE_ERROR,
-                    reason: 'invalid block'
-                });
+                this._sendError('invalid block');
                 throw new Error('Client sent invalid block');
             }
 
@@ -308,6 +299,11 @@ class PoolAgent extends Nimiq.Observable {
      * @private
      */
     async _isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock) {
+        // Check if the share was already submitted
+        if (await this._pool.containsShare(this._userId, hash)) {
+            throw new Error('Client submitted share twice');
+        }
+
         // Check if we are the _miner or the share
         if (!(await minerAddrProof.computeRoot(this._pool.poolAddress)).equals(header.bodyHash)) {
             return 'miner address mismatch';
@@ -364,7 +360,7 @@ class PoolAgent extends Nimiq.Observable {
      */
     _recalcDifficulty() {
         this._timers.clearTimeout('recalc-difficulty');
-        const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastReset);
+        const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastSpsReset);
         Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerMinute.toFixed(2)} at difficulty ${this._difficulty}`);
         if (sharesPerMinute / this._pool.config.desiredSps > 2) {
             this._difficulty = Math.round(this._difficulty * 1.2 * 1000) / 1000;
@@ -376,8 +372,22 @@ class PoolAgent extends Nimiq.Observable {
             this._sendSettings();
         }
         this._sharesSinceReset = 0;
-        this._lastReset = Date.now();
-        this._timers.setTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
+        this._lastSpsReset = Date.now();
+        this._timers.resetTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
+    }
+
+    _countNewError() {
+        this._errorsSinceReset++;
+        if (this._errorsSinceReset > this._pool.config.allowedErrors) {
+            throw new Error('Too many errors');
+        }
+    }
+
+    _sendError(errorString) {
+        this._send({
+            message: PoolAgent.MESSAGE_ERROR,
+            reason: errorString
+        });
     }
 
     _sendSettings() {
@@ -390,6 +400,7 @@ class PoolAgent extends Nimiq.Observable {
             nonce: this._nonce
         };
         this._send(settingsMessage);
+        this._errorsSinceReset = 0;
     }
 
     _regenerateNonce() {
@@ -445,6 +456,5 @@ PoolAgent.MODE_NANO = 'nano';
 PoolAgent.MODE_SMART = 'smart';
 
 PoolAgent.PAYOUT_NONCE_PREFIX = 'POOL_PAYOUT';
-PoolAgent.TRANSFER_NONCE_PREFIX = 'POOL_TRANSFER_FUNDS';
 
 module.exports = exports = PoolAgent;

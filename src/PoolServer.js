@@ -53,7 +53,7 @@ class PoolServer extends Nimiq.Observable {
         /** @type {Set.<PoolAgent>} */
         this._agents = new Set();
 
-        /** @type {Nimiq.HashMap.<NetAddress, number>} */
+        /** @type {Nimiq.HashMap.<Nimiq.NetAddress, number>} */
         this._bannedIPv4IPs = new Nimiq.HashMap();
 
         /** @type {Nimiq.HashMap.<Uint8Array, number>} */
