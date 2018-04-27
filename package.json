@@ -23,6 +23,7 @@
     "jasmine": "^3.1.0"
   },
   "dependencies": {
+    "@nimiq/core": "^1.1.0",
     "btoa": "^1.2.1",
     "jasmine-spec-reporter": "^4.2.1",
     "json5": "^1.0.1",
