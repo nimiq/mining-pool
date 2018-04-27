@@ -338,7 +338,14 @@ class PoolAgent extends Nimiq.Observable {
      * @private
      */
     async _onPayoutMessage(msg) {
-        await this._pool.storePayoutRequest(this._userId);
+        const proofValid = await this._verifyProof(Nimiq.BufferUtils.fromBase64(msg.proof), PoolAgent.PAYOUT_NONCE_PREFIX);
+        if (proofValid) {
+            await this._pool.storePayoutRequest(this._userId);
+            this._regenerateNonce();
+            this._sendSettings();
+        } else {
+            throw new Error('Client provided invalid proof for payout request');
+        }
     }
 
     /**
