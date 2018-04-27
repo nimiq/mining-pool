@@ -386,6 +386,7 @@ class PoolAgent extends Nimiq.Observable {
             address: this._pool.poolAddress.toUserFriendlyAddress(),
             extraData: Nimiq.BufferUtils.toBase64(this._extraData),
             target: Nimiq.BlockUtils.difficultyToTarget(this._difficulty),
+            targetCompact: Nimiq.BlockUtils.difficultyToCompact(this._difficulty),
             nonce: this._nonce
         };
         this._send(settingsMessage);
