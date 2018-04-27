@@ -198,7 +198,6 @@ describe('PoolAgent', () => {
 
             const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'pool', multipleStatements: true });
 
-            /* // There currently is no signature required
             // garbage signature
             let request = { message: 'payout', proof: 'AAAAAAAAAAAAAAAAAAaaaaaaaa' };
             await poolAgent._onMessageData(JSON.stringify(request));
@@ -215,7 +214,6 @@ describe('PoolAgent', () => {
             userId = await poolServer.getStoreUserId(clientAddress);
             [rows, fields] = await connection.execute('SELECT * FROM payout_request WHERE user=?', [userId]);
             expect(rows.length).toEqual(0);
-            */
 
             // valid signature
             signatureProof = await sendSignedPayoutRequest(keyPair);
