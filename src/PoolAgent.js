@@ -91,9 +91,7 @@ class PoolAgent extends Nimiq.Observable {
         }
 
         if (!this._registered) {
-            this._send({
-                message: 'registration-required'
-            });
+            this._sendError('registration required');
             throw new Error('Client did not register');
         }
 
