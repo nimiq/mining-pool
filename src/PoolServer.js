@@ -266,6 +266,8 @@ class PoolServer extends Nimiq.Observable {
     }
 
     async _calculateHashrate() {
+        if (!this.consensus.established) return;
+
         const shareDifficulty = this._totalShareDifficulty - this._lastShareDifficulty;
         this._lastShareDifficulty = this._totalShareDifficulty;
 
