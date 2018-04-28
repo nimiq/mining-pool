@@ -2,7 +2,7 @@ const fs = require('fs');
 const JSON5 = require('json5');
 const merge = require('lodash.merge');
 
-const Log = require('../../core/dist/node.js').Log;
+const Log = require('@nimiq/core').Log;
 const TAG = 'Config';
 
 /**
@@ -193,7 +193,7 @@ function validateItemType(config, key, type, error = true) {
             }
         }
         if (type === 'string' && typeof config[key] === 'number') {
-            Nimiq.Log.i(TAG, `Configuration option '${key}' should be of type 'string', but is of type 'number', will convert it.`);
+            Log.i(TAG, `Configuration option '${key}' should be of type 'string', but is of type 'number', will convert it.`);
             config[key] = config[key].toString();
         }
         if (typeof config[key] !== type) {

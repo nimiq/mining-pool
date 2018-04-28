@@ -4,10 +4,7 @@ Clients are independent network nodes and generate or validate blocks themselves
 Details about the mining pool protocol can be found [here](https://nimiq-network.github.io/developer-reference/chapters/pool-protocol.html#mining-pool-protocol).
 A mining pool client is implemented in [Nimiq Core](https://github.com/nimiq-network/core/tree/master/src/main/generic/miner).
 
-> **Important: Running a mining pool means you are responsible for other people's money!**
->
-> By running a mining pool in the mainnet, your are responsible for other people's money and are responsible for paying it out,
-> or you will become liable for their losses. Always test your pool setup in the testnet first.
+**Operating a public mining-pool in the mainnet makes you responsible for other people's money. Test your pool setup in the testnet first!**
 
 ## Architecture
 The pool server consists of three parts which communicate through a common MySQL-compatible database (schema see `sql/create.sql`)
