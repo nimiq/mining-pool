@@ -90,6 +90,19 @@ class Helper {
             return -1;
         }
     }
+
+    /**
+     * @returns {Promise.<number>}
+     */
+    static async getTotalBlocksMined(connectionPool) {
+        const query = `
+            SELECT COUNT(DISTINCT payin.block) AS blockcount FROM payin
+            INNER JOIN block ON block.id = payin.block
+            WHERE block.main_chain = 1
+        `;
+        const [rows, fields] = await connectionPool.execute(query);
+        return rows[0].blockcount;
+    }
 }
 
 module.exports = exports = Helper;
