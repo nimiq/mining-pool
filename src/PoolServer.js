@@ -152,25 +152,29 @@ class PoolServer extends Nimiq.Observable {
         const httpsServer = https.createServer(sslOptions, (req, res) => {
             res.writeHead(200);
             res.end(`
- ${poolServer.config.name}
- ${Array(poolServer.config.name.length).fill('-').join('')}
+${poolServer.config.name}
+${Array(poolServer.config.name.length).fill('-').join('')}
 
- ${poolServer.config.poolFee * 100}% pool fee ${/*| automatic payout every 6 hours when confirmed balance is at least ${Nimiq.Policy.satoshisToCoins(poolServer.autoPayOutLimit)} NIM*/}
+${poolServer.config.poolFee * 100}% pool fee ${/*| automatic payout every <put your schedule here> when confirmed balance is over ${Nimiq.Policy.satoshisToCoins(poolServer.config.autoPayOutLimit)} NIM*/}
 
- # Stats
- Connected miners:    ${poolServer.numClients}
- Pool hashrate:       ${Math.round(poolServer.averageHashrate)} H/s
- Blocks mined:        ${poolServer.totalBlocksMined}
- Network:             main
 
- # Howto
- To connect, add '--pool=${poolServer.config.name}:${poolServer.port}' to your NodeJS miner command line, or add this to your config file:
+### STATS ###
 
- poolMining: {
+Connected miners:    ${poolServer.numClients}
+Pool hashrate:       ${Math.round(poolServer.averageHashrate)} H/s
+Blocks mined:        ${poolServer.totalBlocksMined}
+Network:             main
+
+
+### HOW TO CONNECT ###
+
+To connect, add '--pool=${poolServer.config.name}:${poolServer.port}' to your NodeJS miner command line, or add this to your config file:
+
+poolMining: {
     enabled: true,
     host: '${poolServer.config.name}',
     port: ${poolServer.port},
- }
+}
 `);
         }).listen(port);
 
