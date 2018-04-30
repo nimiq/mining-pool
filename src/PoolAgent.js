@@ -183,6 +183,7 @@ class PoolAgent extends Nimiq.Observable {
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason !== null) {
             this._sendError('invalid share: ' + invalidReason);
+            Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (nano): ${invalidReason}`);
             this._countNewError();
             return;
         }
@@ -260,6 +261,7 @@ class PoolAgent extends Nimiq.Observable {
         const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
         if (invalidReason !== null) {
             this._sendError('invalid share: ' + invalidReason);
+            Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (smart): ${invalidReason}`);
             this._countNewError();
             return;
         }
