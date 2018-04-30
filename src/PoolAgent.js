@@ -196,7 +196,7 @@ class PoolAgent extends Nimiq.Observable {
 
         await this._pool.storeShare(this._userId, this._deviceId, block.header.prevHash, block.header.height - 1, this._difficulty, hash);
 
-        Nimiq.Log.d(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()} (nano), prev ${block.header.prevHash} : ${hash}`);
+        Nimiq.Log.v(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()} (nano), prev ${block.header.prevHash} : ${hash}`);
 
         this.fire('share', block.header, this._difficulty);
     }
@@ -286,7 +286,7 @@ class PoolAgent extends Nimiq.Observable {
 
         await this._pool.storeShare(this._userId, this._deviceId, header.prevHash, header.height - 1, this._difficulty, hash);
 
-        Nimiq.Log.d(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()} (smart), prev ${header.prevHash} : ${hash}`);
+        Nimiq.Log.v(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()} (smart), prev ${header.prevHash} : ${hash}`);
 
         this.fire('share', header, this._difficulty);
     }
