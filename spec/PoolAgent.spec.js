@@ -55,7 +55,6 @@ describe('PoolAgent', () => {
             spyOn(time, 'now').and.callFake(() => 0);
 
             const poolAgent = new PoolAgent(poolServer, {
-                _socket: { remoteAddress: '1.2.3.4' },
                 close: () => {},
                 send: async (json) => {
                     const msg = JSON.parse(json);
@@ -87,7 +86,7 @@ describe('PoolAgent', () => {
                         done();
                     }
                 }
-            });
+            }, Nimiq.NetAddress.fromIP('1.2.3.4'));
             await poolAgent._onMessage(NQ43sampleData.register);
         })().catch(done.fail);
     });
@@ -103,7 +102,6 @@ describe('PoolAgent', () => {
             spyOn(time, 'now').and.callFake(() => fixFakeTime);
 
             const poolAgent = new PoolAgent(poolServer, {
-                _socket: { remoteAddress: '1.2.3.4' },
                 close: () => {},
                 send: async (json) => {
                     const msg = JSON.parse(json);
@@ -129,7 +127,7 @@ describe('PoolAgent', () => {
                         done();
                     }
                 }
-            });
+            }, Nimiq.NetAddress.fromIP('1.2.3.4'));
             await poolAgent._onMessage(NQ43sampleData.register);
         })().catch(done.fail);
     });
@@ -143,7 +141,6 @@ describe('PoolAgent', () => {
             spyOn(time, 'now').and.callFake(() => 0);
 
             const poolAgent = new PoolAgent(poolServer, {
-                _socket: { remoteAddress: '1.2.3.4' },
                 close: () => { },
                 send: async (json) => {
                     const msg = JSON.parse(json);
@@ -163,7 +160,7 @@ describe('PoolAgent', () => {
                         done();
                     }
                 }
-            });
+            }, Nimiq.NetAddress.fromIP('1.2.3.4'));
             await poolAgent._onMessage(NQ43sampleData.register);
         })().catch(done.fail);
     });
@@ -176,7 +173,7 @@ describe('PoolAgent', () => {
             const consensus = await Nimiq.Consensus.volatileFull();
             const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', 'localhost', '', '');
             await poolServer.start();
-            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {}, _socket: { remoteAddress: '1.2.3.4' } });
+            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {} }, Nimiq.NetAddress.fromIP('1.2.3.4'));
             spyOn(poolAgent, '_regenerateNonce').and.callFake(() => { poolAgent._nonce = 42 });
 
             const registerMsg = {

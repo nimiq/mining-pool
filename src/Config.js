@@ -64,7 +64,7 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
     },
     poolServer: {
         enabled: false,
-        port: -1,
+        port: 8444,
         sslCertPath: null,
         sslKeyPath: null,
         mySqlPsw: null,

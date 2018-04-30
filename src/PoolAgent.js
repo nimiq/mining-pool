@@ -1,7 +1,7 @@
 const Nimiq = require('@nimiq/core');
 
 class PoolAgent extends Nimiq.Observable {
-    constructor(pool, ws) {
+    constructor(pool, ws, netAddress) {
         super();
 
         /** @type {PoolServer} */
@@ -12,6 +12,9 @@ class PoolAgent extends Nimiq.Observable {
         this._ws.onmessage = (msg) => this._onMessageData(msg.data);
         this._ws.onerror = () => this._onError();
         this._ws.onclose = () => this._onClose();
+
+        /** @type {Nimiq.NetAddress} */
+        this._netAddress = netAddress;
 
         /** @type {number} */
         this._difficulty = this._pool.config.minDifficulty;
@@ -75,7 +78,8 @@ class PoolAgent extends Nimiq.Observable {
             await this._onMessage(JSON.parse(data));
         } catch (e) {
             Nimiq.Log.e(PoolAgent, e);
-            this._pool.ban(this._ws);
+            this._pool.banIp(this._netAddress);
+            this._ws.close();
         }
     }
 
