@@ -48,6 +48,7 @@ class PoolPayout extends Nimiq.Observable {
                 }
             });
         });
+        Nimiq.Log.i(PoolPayout, `Starting payout process using address ${this.wallet.address.toUserFriendlyAddress()}`);
     }
 
     _quit() {
@@ -73,6 +74,10 @@ class PoolPayout extends Nimiq.Observable {
             const balance = await Helper.getUserBalance(this._config, this.connectionPool, payoutRequest.userId, this.consensus.blockchain.height);
             await this._payout(payoutRequest.userId, payoutRequest.userAddress, balance, true);
             await this._removePayoutRequest(payoutRequest.userId);
+        }
+
+        if (autoPayouts.length == 0 && payoutRequests.length == 0) {
+            this._quit();
         }
     }
 
