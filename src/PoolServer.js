@@ -74,6 +74,9 @@ class PoolServer extends Nimiq.Observable {
         /** @type {number} */
         this._averageHashrate = 0;
 
+        /** @type {boolean} */
+        this._started = false;
+
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
 
         setInterval(() => this._calculateHashrate(), PoolServer.HASHRATE_INTERVAL);
@@ -82,6 +85,9 @@ class PoolServer extends Nimiq.Observable {
     }
 
     async start() {
+        if (this._started) return;
+        this._started = true;
+
         this._currentLightHead = this.consensus.blockchain.head.toLight();
         await this._updateTransactions();
 
