@@ -100,7 +100,7 @@ for (const seedPeer of config.seedPeers) {
     if (config.poolPayout.enabled) {
         const wallet = await $.walletStore.get(Nimiq.Address.fromString(config.pool.address));
         if (!wallet) Nimiq.Log.i(TAG, 'Wallet for pool address not found, will fallback to default wallet for payouts.');
-        const poolPayout = new PoolPayout($.consensus, wallet || $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
+        const poolPayout = new PoolPayout($.consensus, wallet || $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost, config.poolPayout.ownerPayoutAddress);
         poolPayout.start();
     }
 
