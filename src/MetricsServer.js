@@ -54,7 +54,11 @@ class MetricsServer {
     }
 
     _metrics(res) {
-        MetricsServer._metric(res, 'pool_clients', this._desc, this._poolServer.numClients);
+        const clientCounts = this._poolServer.getClientModeCounts();
+        MetricsServer._metric(res, 'pool_clients', this._with({client: 'unregistered'}), clientCounts.unregistered);
+        MetricsServer._metric(res, 'pool_clients', this._with({client: 'smart'}), clientCounts.smart);
+        MetricsServer._metric(res, 'pool_clients', this._with({client: 'nano'}), clientCounts.nano);
+
         MetricsServer._metric(res, 'pool_ips_banned', this._desc, this._poolServer.numIpsBanned);
         MetricsServer._metric(res, 'pool_blocks_mined', this._desc, this._poolServer.numBlocksMined);
         MetricsServer._metric(res, 'pool_total_share_difficulty', this._desc, this._poolServer.totalShareDifficulty);

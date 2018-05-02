@@ -16,6 +16,9 @@ class PoolAgent extends Nimiq.Observable {
         /** @type {Nimiq.NetAddress} */
         this._netAddress = netAddress;
 
+        /** @type {PoolAgent.Mode} */
+        this.mode = PoolAgent.Mode.UNREGISTERED;
+
         /** @type {number} */
         this._difficulty = this._pool.config.minDifficulty;
 
@@ -43,7 +46,7 @@ class PoolAgent extends Nimiq.Observable {
      * @param {Nimiq.Hash} accountsHash
      */
     async updateBlock(prevBlock, transactions, prunedAccounts, accountsHash) {
-        if (this.mode !== PoolAgent.MODE_NANO) return;
+        if (this.mode !== PoolAgent.Mode.NANO) return;
         if (!prevBlock || !transactions || !prunedAccounts || !accountsHash) return;
 
         this._currentBody = new Nimiq.BlockBody(this._pool.poolAddress, transactions, this._extraData, prunedAccounts);
@@ -101,9 +104,9 @@ class PoolAgent extends Nimiq.Observable {
 
         switch (msg.message) {
             case PoolAgent.MESSAGE_SHARE: {
-                if (this.mode === PoolAgent.MODE_NANO) {
+                if (this.mode === PoolAgent.Mode.NANO) {
                     await this._onNanoShareMessage(msg);
-                } else if (this.mode === PoolAgent.MODE_SMART) {
+                } else if (this.mode === PoolAgent.Mode.SMART) {
                     await this._onSmartShareMessage(msg);
                 }
                 this._sharesSinceReset++;
@@ -134,10 +137,10 @@ class PoolAgent extends Nimiq.Observable {
         this._deviceId = msg.deviceId;
         switch (msg.mode) {
             case PoolAgent.MODE_SMART:
-                this.mode = PoolAgent.MODE_SMART;
+                this.mode = PoolAgent.Mode.SMART;
                 break;
             case PoolAgent.MODE_NANO:
-                this.mode = PoolAgent.MODE_NANO;
+                this.mode = PoolAgent.Mode.NANO;
                 break;
             default:
                 throw new Error('Client did not specify mode');
@@ -162,7 +165,7 @@ class PoolAgent extends Nimiq.Observable {
         });
 
         this._sendSettings();
-        if (this.mode === PoolAgent.MODE_NANO) {
+        if (this.mode === PoolAgent.Mode.NANO) {
             this._pool.requestCurrentHead(this);
         }
         await this.sendBalance();
@@ -182,8 +185,8 @@ class PoolAgent extends Nimiq.Observable {
 
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason !== null) {
-            this._sendError('invalid share: ' + invalidReason);
             Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (nano): ${invalidReason}`);
+            this._sendError('invalid share: ' + invalidReason);
             this._countNewError();
             return;
         }
@@ -260,8 +263,8 @@ class PoolAgent extends Nimiq.Observable {
 
         const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
         if (invalidReason !== null) {
-            this._sendError('invalid share: ' + invalidReason);
             Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (smart): ${invalidReason}`);
+            this._sendError('invalid share: ' + invalidReason);
             this._countNewError();
             return;
         }
@@ -465,6 +468,13 @@ PoolAgent.MESSAGE_ERROR = 'error';
 
 PoolAgent.MODE_NANO = 'nano';
 PoolAgent.MODE_SMART = 'smart';
+
+/** @enum {number} */
+PoolAgent.Mode = {
+    UNREGISTERED: 0,
+    NANO: 1,
+    SMART: 2
+};
 
 PoolAgent.PAYOUT_NONCE_PREFIX = 'POOL_PAYOUT';
 

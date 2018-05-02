@@ -197,7 +197,7 @@ class PoolServer extends Nimiq.Observable {
 
     _announceNewNextToNano() {
         for (const poolAgent of this._agents.values()) {
-            if (poolAgent.mode && poolAgent.mode === PoolAgent.MODE_NANO) {
+            if (poolAgent.mode === PoolAgent.Mode.NANO) {
                 poolAgent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
             }
         }
@@ -338,6 +338,27 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
+     * @type {{ unregistered: number, smart: number, nano: number}}
+     */
+    getClientModeCounts() {
+        let unregistered = 0, smart = 0, nano = 0;
+        for (const agent of this._agents) {
+            switch (agent.mode) {
+                case PoolAgent.Mode.SMART:
+                    smart++;
+                    break;
+                case PoolAgent.Mode.NANO:
+                    nano++;
+                    break;
+                case PoolAgent.Mode.UNREGISTERED:
+                    unregistered++;
+                    break;
+            }
+        }
+        return { unregistered: unregistered, smart: smart, nano: nano };
+    }
+
+    /**
      * @type {Nimiq.FullConsensus}
      * */
     get consensus() {
@@ -347,13 +368,6 @@ class PoolServer extends Nimiq.Observable {
     /** @type {PoolConfig} */
     get config() {
         return this._config;
-    }
-
-    /**
-     * @type {number}
-     */
-    get numClients() {
-        return this._agents.size;
     }
 
     /**
