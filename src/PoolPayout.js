@@ -10,8 +10,9 @@ class PoolPayout extends Nimiq.Observable {
      * @param {PoolConfig} config
      * @param {string} mySqlPsw
      * @param {string} mySqlHost
+     * @param {string?} ownerAddress
      */
-    constructor(consensus, wallet, config, mySqlPsw, mySqlHost) {
+    constructor(consensus, wallet, config, mySqlPsw, mySqlHost, ownerAddress) {
         super();
         /** @type {BaseConsensus} */
         this._consensus = consensus;
@@ -27,6 +28,9 @@ class PoolPayout extends Nimiq.Observable {
 
         /** @type {string} */
         this._mySqlHost = mySqlHost;
+
+        /** @type {string|null} */
+        this._ownerAddress = ownerAddress;
 
         /** @type {Timers} */
         this._timers = new Nimiq.Timers();
@@ -76,7 +80,47 @@ class PoolPayout extends Nimiq.Observable {
             await this._removePayoutRequest(payoutRequest.userId);
         }
 
-        if (autoPayouts.length == 0 && payoutRequests.length == 0) {
+        let isOwnerPayout = false;
+
+        // Determine pool owner payout
+        if (this.ownerAddress) {
+            console.log("Calculating owner payout...");
+
+            // 1. Get the confirmed pool balance
+            const poolAddress = Nimiq.Address.fromUserFriendlyAddress(this._config.address);
+            const accountsProof = await this.consensus.blockchain.getAccountsProof(this.consensus.blockchain.headHash, [poolAddress]);
+            if (!accountsProof.verify()) {
+                throw new Error('Failed to verify generated AccountsProof for pool balance');
+            }
+            const poolAccount = accountsProof.getAccount(poolAddress);
+            const poolBalance = poolAccount.balance;
+            console.log("Pool balance:", Nimiq.Policy.satoshisToCoins(poolBalance), "NIM");
+
+            // 2. Get all confirmed user balances (after the above payouts) and sum them up
+            let sumUserBalances = 0;
+            const userBalances = await this._getUserBalances(this.consensus.blockchain.height, 0);
+            for (const balance of userBalances) {
+                sumUserBalances += balance.amount;
+            }
+            console.log("Sum of user balances:", Nimiq.Policy.satoshisToCoins(sumUserBalances), "NIM");
+
+            // 3. Subtract all user balances from the pool balance
+            const ownerBalance = poolBalance - sumUserBalances;
+            console.log("Owner balance:", Nimiq.Policy.satoshisToCoins(ownerBalance), "NIM");
+
+            if (ownerBalance > this._config.autoPayOutLimit) {
+                console.log("Owner balance is above auto payout limit, paying out to owner:", Nimiq.Policy.satoshisToCoins(ownerBalance), "NIM");
+                isOwnerPayout = true;
+
+                // 4. Payout pool owner
+                const ownerAddress = Nimiq.Address.fromUserFriendlyAddress(this.ownerAddress);
+                await this._payout('OWNER', ownerAddress, ownerBalance, true);
+            } else {
+                console.log("Owner balance is below auto payout limit, not paying out to owner");
+            }
+        }
+
+        if (autoPayouts.length == 0 && payoutRequests.length == 0 && !isOwnerPayout) {
             this._quit();
         }
     }
@@ -94,7 +138,7 @@ class PoolPayout extends Nimiq.Observable {
         if (txAmount > 0) {
             Nimiq.Log.i(PoolPayout, `PAYING ${Nimiq.Policy.satoshisToCoins(txAmount)} NIM to ${recipientAddress.toUserFriendlyAddress()}`);
             const tx = this.wallet.createTransaction(recipientAddress, txAmount, fee, this.consensus.blockchain.height);
-            await this._storePayout(recipientId, amount, Date.now(), tx.hash());
+            if (recipientId !== 'OWNER') await this._storePayout(recipientId, amount, Date.now(), tx.hash());
             await this.consensus.mempool.pushTransaction(tx);
 
             // TODO remove payouts that are never mined into a block
@@ -106,6 +150,16 @@ class PoolPayout extends Nimiq.Observable {
      * @private
      */
     async _getAutoPayouts() {
+        return this._getUserBalances(this.consensus.blockchain.height - this._config.payoutConfirmations, this._config.autoPayOutLimit);
+    }
+
+    /**
+     * @param {number} height
+     * @param {number} limit
+     * @returns {Promise.<Array.<{userAddress: Nimiq.Address, userId: number, amount: number}>>}
+     * @private
+     */
+    async _getUserBalances(height, limit) {
         const query = `
             SELECT user.id AS user_id, user.address AS user_address, IFNULL(payin_sum, 0) AS payin_sum, IFNULL(payout_sum, 0) AS payout_sum
             FROM (
@@ -126,8 +180,7 @@ class PoolPayout extends Nimiq.Observable {
                 LEFT JOIN user ON user.id = t1.user
             )
             WHERE payin_sum - IFNULL(payout_sum, 0) > ?`;
-        const blocksConfirmedHeight = this.consensus.blockchain.height - this._config.payoutConfirmations;
-        const queryArgs = [blocksConfirmedHeight, this._config.autoPayOutLimit];
+        const queryArgs = [height, limit];
         const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
 
         const ret = [];
@@ -224,6 +277,13 @@ class PoolPayout extends Nimiq.Observable {
      * */
     get consensus() {
         return this._consensus;
+    }
+
+    /**
+     * @type {string|null}
+     * */
+    get ownerAddress() {
+        return this._ownerAddress;
     }
 }
 

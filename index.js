@@ -139,7 +139,7 @@ for (const key in config.constantOverrides) {
             Nimiq.Log.i(TAG, 'Wallet for pool address not found, terminating.');
             process.exit(0);
         }
-        const poolPayout = new PoolPayout($.consensus, $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
+        const poolPayout = new PoolPayout($.consensus, $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost, config.poolPayout.ownerPayoutAddress);
         poolPayout.start();
     }
     if (config.poolValidate.enabled) {

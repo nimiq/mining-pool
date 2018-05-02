@@ -73,6 +73,7 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
     },
     poolPayout: {
         enabled: false,
+        ownerPayoutAddress: null,
         mySqlPsw: null,
         mySqlHost: null
     },
