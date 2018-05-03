@@ -60,8 +60,11 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         spsTimeUnit: 60000, // 1 minute
         desiredSps: 0.2, // desired shares per second
         connectionTimeout: 60 * 1000 * 10, // 10 minutes
+        maxConnPerIP: 100,
+        maxConnInTimePerIP: 50,
+        maxConnTimeUnit: 1000 * 60 * 5,
         pplnsShares: 1000,
-        allowedErrors: 3
+        allowedErrors: 30
     },
     poolServer: {
         enabled: false,

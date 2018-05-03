@@ -54,6 +54,18 @@ class PoolServer extends Nimiq.Observable {
         this._agents = new Set();
 
         /** @type {Nimiq.HashMap.<Nimiq.NetAddress, number>} */
+        this._connectionsInTimePerIPv4 = new Nimiq.HashMap();
+
+        /** @type {Nimiq.HashMap.<Uint8Array, number>} */
+        this._connectionsInTimePerIPv6 = new Nimiq.HashMap();
+
+        /** @type {Nimiq.HashMap.<Nimiq.NetAddress, number>} */
+        this._connectionsPerIPv4 = new Nimiq.HashMap();
+
+        /** @type {Nimiq.HashMap.<Uint8Array, number>} */
+        this._connectionsPerIPv6 = new Nimiq.HashMap();
+
+        /** @type {Nimiq.HashMap.<Nimiq.NetAddress, number>} */
         this._bannedIPv4IPs = new Nimiq.HashMap();
 
         /** @type {Nimiq.HashMap.<Uint8Array, number>} */
@@ -76,6 +88,8 @@ class PoolServer extends Nimiq.Observable {
 
         /** @type {boolean} */
         this._started = false;
+
+        setInterval(() => { this._bannedIPv4IPs = new Nimiq.HashMap(); this._bannedIPv6IPs = new Nimiq.HashMap(); }, this.config.maxConnTimeUnit);
 
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
 
@@ -136,7 +150,11 @@ class PoolServer extends Nimiq.Observable {
         try {
             const netAddress = Nimiq.NetAddress.fromIP(req.connection.remoteAddress);
             if (this._isIpBanned(netAddress)) {
-                Nimiq.Log.i(PoolServer, `Banned IP tried to connect ${netAddress}`);
+                Nimiq.Log.i(PoolServer, `[${netAddress}] Banned IP tried to connect`);
+                ws.close();
+            } else if (this._newIpConnTooMany(netAddress))  {
+                Nimiq.Log.i(PoolServer, `[${netAddress}] Rejecting connection from IP having established too many connections (lately)`);
+                ws.send(JSON.stringify({ message: PoolAgent.MESSAGE_ERROR, reason: 'too many consecutive or total connections per IP' }));
                 ws.close();
             } else {
                 const agent = new PoolAgent(this, ws, netAddress);
@@ -248,6 +266,37 @@ class PoolServer extends Nimiq.Observable {
         }
     }
 
+    /**
+     * @param {Nimiq.NetAddress} netAddress
+     * @returns {boolean}
+     * @private
+     */
+    _newIpConnTooMany(netAddress) {
+        if (!netAddress.isPrivate()) {
+            if (netAddress.isIPv4()) {
+                const currTotalCount = this._connectionsPerIPv4.get(netAddress) || 0;
+                const currRateCount = this._connectionsInTimePerIPv4.get(netAddress) || 0;
+                if (currTotalCount >= this.config.maxConnPerIP || currRateCount >= this.config.maxConnInTimePerIP) {
+                    return true;
+                }
+                this._connectionsPerIPv4.put(netAddress, currTotalCount + 1);
+                this._connectionsInTimePerIPv4.put(netAddress, currRateCount + 1);
+                console.log('rates', currTotalCount + 1, currRateCount + 1);
+            } else if (netAddress.isIPv6()) {
+                const prefix = netAddress.ip.subarray(0, 8);
+                const currTotalCount = this._connectionsPerIPv6.get(prefix) || 0;
+                const currRateCount = this._connectionsInTimePerIPv6.get(prefix) || 0;
+                if (currTotalCount >= this.config.maxConnPerIP || currRateCount >= this.config.maxConnInTimePerIP) {
+                    return true;
+                }
+                this._connectionsPerIPv6.put(prefix, currTotalCount + 1);
+                this._connectionsInTimePerIPv6.put(prefix, currRateCount + 1);
+                console.log('rates', currTotalCount + 1, currRateCount + 1);
+            }
+        }
+        return false;
+    }
+
     _calculateHashrate() {
         if (!this.consensus.established) return;
 
@@ -284,7 +333,7 @@ class PoolServer extends Nimiq.Observable {
 
     /**
      * @param {number} user
-     * @param {string} shareHash
+     * @param {Nimiq.Hash} shareHash
      * @returns {boolean}
      */
     async containsShare(user, shareHash) {
@@ -336,6 +385,23 @@ class PoolServer extends Nimiq.Observable {
      * @param {PoolAgent} agent
      */
     removeAgent(agent) {
+        if (!agent.netAddress.isPrivate()) {
+            // Remove one connection from total count per IP
+            if (agent.netAddress.isIPv4()) {
+                const currTotalCount = this._connectionsPerIPv4.get(agent.netAddress) || 0;
+                if (currTotalCount <= 1) {
+                    this._connectionsPerIPv4.remove(agent.netAddress);
+                }
+                this._connectionsPerIPv4.put(agent.netAddress, currTotalCount - 1);
+            } else if (agent.netAddress.isIPv6()) {
+                const prefix = agent.netAddress.ip.subarray(0, 8);
+                const currTotalCount = this._connectionsPerIPv6.get(prefix) || 0;
+                if (currTotalCount <= 1) {
+                    this._connectionsPerIPv6.remove(prefix);
+                }
+                this._connectionsPerIPv6.put(prefix, currTotalCount - 1);
+            }
+        }
         this._agents.delete(agent);
     }
 
