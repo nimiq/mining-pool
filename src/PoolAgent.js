@@ -274,7 +274,7 @@ class PoolAgent extends Nimiq.Observable {
         if (prevBlock !== null) {
             const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(prevBlock, true);
             if (successors.length > 0) {
-                this._sendError('too old');
+                this._sendError('share expired');
                 return;
             }
         }
