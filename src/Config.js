@@ -55,6 +55,7 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         autoPayOutLimit: 5000000, // 50 NIM
         poolFee: 0.01, // 1%
         networkFee: 1, // satoshi per byte
+        startDifficulty: 1,
         minDifficulty: 1,
         spsTimeUnit: 60000, // 1 minute
         desiredSps: 0.2, // desired shares per second
@@ -118,6 +119,7 @@ const CONFIG_TYPES = {
             poolFee: 'number',
             networkFee: 'number',
             minDifficulty: 'number',
+            startDifficulty: 'number',
             spsTimeUnit: 'number',
             desiredSps: 'number',
             connectionTimeout: 'number',

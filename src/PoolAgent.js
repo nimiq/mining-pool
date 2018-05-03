@@ -20,7 +20,7 @@ class PoolAgent extends Nimiq.Observable {
         this.mode = PoolAgent.Mode.UNREGISTERED;
 
         /** @type {number} */
-        this._difficulty = this._pool.config.minDifficulty;
+        this._difficulty = this._pool.config.startDifficulty;
 
         /** @type {number} */
         this._sharesSinceReset = 0;
