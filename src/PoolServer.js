@@ -82,6 +82,9 @@ class PoolServer extends Nimiq.Observable {
         /** @type {number} */
         this._numBlocksMined = 0;
 
+        /** @type {number} */
+        this._totalBlocksMined = 0;
+
         /** @type {Nimiq.BigNumber} */
         this._totalShareDifficulty = new Nimiq.BigNumber(0);
 
@@ -131,7 +134,7 @@ class PoolServer extends Nimiq.Observable {
             database: 'pool'
         });
 
-        this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath);
+        this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath, this);
         this._wss.on('connection', (ws, req) => this._onConnection(ws, req));
 
         this.consensus.blockchain.on('head-changed', (head) => {
@@ -141,14 +144,34 @@ class PoolServer extends Nimiq.Observable {
         });
     }
 
-    static createServer(port, sslKeyPath, sslCertPath) {
+    static createServer(port, sslKeyPath, sslCertPath, poolServer) {
         const sslOptions = {
             key: fs.readFileSync(sslKeyPath),
             cert: fs.readFileSync(sslCertPath)
         };
         const httpsServer = https.createServer(sslOptions, (req, res) => {
             res.writeHead(200);
-            res.end('Nimiq Pool Server\n');
+            res.end(`
+ ${poolServer.config.name}
+ ${Array(poolServer.config.name.length).fill('-').join('')}
+
+ ${poolServer.config.poolFee * 100}% pool fee ${/*| automatic payout every 6 hours when confirmed balance is at least ${Nimiq.Policy.satoshisToCoins(poolServer.autoPayOutLimit)} NIM*/}
+
+ # Stats
+ Connected miners:    ${poolServer.numClients}
+ Pool hashrate:       ${Math.round(poolServer.averageHashrate)} H/s
+ Blocks mined:        ${poolServer.totalBlocksMined}
+ Network:             main
+
+ # Howto
+ To connect, add '--pool=${poolServer.config.name}:${poolServer.port}' to your NodeJS miner command line, or add this to your config file:
+
+ poolMining: {
+    enabled: true,
+    host: '${poolServer.config.name}',
+    port: ${poolServer.port},
+ }
+`);
         }).listen(port);
 
         // We have to access socket.remoteAddress here because otherwise req.connection.remoteAddress won't be set in the WebSocket's 'connection' event (yay)
@@ -321,7 +344,7 @@ class PoolServer extends Nimiq.Observable {
         return false;
     }
 
-    _calculateHashrate() {
+    async _calculateHashrate() {
         if (!this.consensus.established) return;
 
         const shareDifficulty = this._totalShareDifficulty.minus(this._lastShareDifficulty);
@@ -338,6 +361,10 @@ class PoolServer extends Nimiq.Observable {
         this._averageHashrate = hashrateSum / this._hashrates.length;
 
         Nimiq.Log.d(PoolServer, `Pool hashrate is ${Math.round(this._averageHashrate)} H/s (10 min average)`);
+
+        this._totalBlocksMined = await Helper.getTotalBlocksMined(this.connectionPool);
+        Nimiq.Log.d(PoolServer, `Total blocks mined: ${this._totalBlocksMined}`);
+
     }
 
     /**
@@ -551,6 +578,13 @@ class PoolServer extends Nimiq.Observable {
      */
     get numBlocksMined() {
         return this._numBlocksMined;
+    }
+
+    /**
+      * @type {number}
+      */
+    get totalBlocksMined() {
+        return this._totalBlocksMined;
     }
 
     /**
