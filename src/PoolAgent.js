@@ -14,7 +14,7 @@ class PoolAgent extends Nimiq.Observable {
         this._ws.onclose = () => this._onClose();
 
         /** @type {Nimiq.NetAddress} */
-        this._netAddress = netAddress;
+        this.netAddress = netAddress;
 
         /** @type {PoolAgent.Mode} */
         this.mode = PoolAgent.Mode.UNREGISTERED;
@@ -103,7 +103,7 @@ class PoolAgent extends Nimiq.Observable {
             await this._onMessage(JSON.parse(data));
         } catch (e) {
             Nimiq.Log.e(PoolAgent, e);
-            this._pool.banIp(this._netAddress);
+            this._pool.banIp(this.netAddress);
             this._ws.close();
         }
     }

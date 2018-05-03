@@ -46,7 +46,11 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         pplnsBlocks: 10,
         flushSharesInterval: 1000 * 10, // 10 seconds
         connectionTimeout: 60 * 1000 * 10, // 10 minutes
-        allowedErrors: 3
+        maxConnPerIP: 100,
+        maxConnInTimePerIP: 50,
+        maxConnTimeUnit: 1000 * 60 * 5,
+        pplnsShares: 1000,
+        allowedErrors: 30
     },
     poolServer: {
         enabled: false,
