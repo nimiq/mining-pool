@@ -19,8 +19,16 @@ class PoolAgent extends Nimiq.Observable {
         /** @type {PoolAgent.Mode} */
         this.mode = PoolAgent.Mode.UNREGISTERED;
 
+        /** @type {Uint8Array} */
+        this._extraData = null;
         /** @type {number} */
         this._difficulty = this._pool.config.startDifficulty;
+
+        // Store old extra data + difficulty to allow smart clients to be one settings change off.
+        /** @type {Uint8Array} */
+        this._extraDataOld = null;
+        /** @type {number} */
+        this._difficultyOld = this._difficulty;
 
         /** @type {number} */
         this._sharesSinceReset = 0;
@@ -157,7 +165,7 @@ class PoolAgent extends Nimiq.Observable {
         this._timers.resetTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
         this._userId = await this._pool.getStoreUserId(this._address);
         this._regenerateNonce();
-        this._regenerateExtraData();
+        this._regenerateSettings();
 
         this._registered = true;
         this._send({
@@ -185,7 +193,7 @@ class PoolAgent extends Nimiq.Observable {
         const hash = block.hash();
 
         const invalidReason = await this._isNanoShareValid(block, hash);
-        if (invalidReason !== null) {
+        if (invalidReason) {
             Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (nano): ${invalidReason}`);
             this._sendError('invalid share: ' + invalidReason);
             this._countNewError();
@@ -262,8 +270,8 @@ class PoolAgent extends Nimiq.Observable {
         const extraDataProof = Nimiq.MerklePath.unserialize(Nimiq.BufferUtils.fromBase64(msg.extraDataProof));
         const fullBlock = msg.block ? Nimiq.Block.unserialize(Nimiq.BufferUtils.fromBase64(msg.block)) : null;
 
-        const invalidReason = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
-        if (invalidReason !== null) {
+        const {invalidReason, difficulty} = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
+        if (invalidReason) {
             Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (smart): ${invalidReason}`);
             this._sendError('invalid share: ' + invalidReason);
             this._countNewError();
@@ -290,11 +298,11 @@ class PoolAgent extends Nimiq.Observable {
             this.fire('block', header);
         }
 
-        await this._pool.storeShare(this._userId, this._deviceId, header.prevHash, header.height - 1, this._difficulty, hash);
+        await this._pool.storeShare(this._userId, this._deviceId, header.prevHash, header.height - 1, difficulty, hash);
 
         Nimiq.Log.v(PoolAgent, () => `SHARE from ${this._address.toUserFriendlyAddress()} (smart), prev ${header.prevHash} : ${hash}`);
 
-        this.fire('share', header, this._difficulty);
+        this.fire('share', header, difficulty);
     }
 
     /**
@@ -303,7 +311,7 @@ class PoolAgent extends Nimiq.Observable {
      * @param {Nimiq.MerklePath} minerAddrProof
      * @param {Nimiq.MerklePath} extraDataProof
      * @param {Nimiq.Block} fullBlock
-     * @returns {Promise.<?string>}
+     * @returns {Promise.<{invalidReason: string}|{difficulty: number}>}
      * @private
      */
     async _isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock) {
@@ -314,31 +322,36 @@ class PoolAgent extends Nimiq.Observable {
 
         // Check if we are the _miner or the share
         if (!(await minerAddrProof.computeRoot(this._pool.poolAddress)).equals(header.bodyHash)) {
-            return 'miner address mismatch';
+            return {invalidReason: 'miner address mismatch'};
         }
 
         // Check if the extra data is in the share
-        if (!(await extraDataProof.computeRoot(this._extraData)).equals(header.bodyHash)) {
-            return 'extra data mismatch';
+        let expectedDifficulty;
+        if (this._extraData && (await extraDataProof.computeRoot(this._extraData)).equals(header.bodyHash)) {
+            expectedDifficulty = this._difficulty;
+        } else if (this._extraDataOld && (await extraDataProof.computeRoot(this._extraDataOld)).equals(header.bodyHash)) {
+            expectedDifficulty = this._difficultyOld;
+        } else {
+            return {invalidReason: 'extra data mismatch'};
         }
 
         // Check that the timestamp is not too far into the future.
         if (header.timestamp * 1000 > this._pool.consensus.network.time + Nimiq.Block.TIMESTAMP_DRIFT_MAX * 1000) {
-            return 'bad timestamp';
+            return {invalidReason: 'bad timestamp'};
         }
 
         // Check if the share fulfills the difficulty set for this client
         const pow = await header.pow();
-        if (!Nimiq.BlockUtils.isProofOfWork(pow, Nimiq.BlockUtils.difficultyToTarget(this._difficulty))) {
-            return 'invalid pow';
+        if (!Nimiq.BlockUtils.isProofOfWork(pow, Nimiq.BlockUtils.difficultyToTarget(expectedDifficulty))) {
+            return {invalidReason: 'invalid pow'};
         }
 
         // Check if the full block matches the header.
         if (fullBlock && !hash.equals(fullBlock.hash())) {
-            throw new Error('full block announced but mismatches')
+            throw new Error('full block announced but mismatches');
         }
 
-        return null;
+        return {difficulty: expectedDifficulty};
     }
 
     /**
@@ -375,15 +388,15 @@ class PoolAgent extends Nimiq.Observable {
      */
     _recalcDifficulty() {
         this._timers.clearTimeout('recalc-difficulty');
-        const sharesPerMinute = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastSpsReset);
-        Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerMinute.toFixed(2)} at difficulty ${this._difficulty}`);
-        if (sharesPerMinute / this._pool.config.desiredSps > 2) {
-            this._difficulty = Math.round(this._difficulty * 1.2 * 1000) / 1000;
-            this._regenerateExtraData();
+        const sharesPerSecond = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastSpsReset);
+        Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerSecond.toFixed(2)} at difficulty ${this._difficulty}`);
+        if (sharesPerSecond / this._pool.config.desiredSps > 2) {
+            const newDifficulty = Math.round(this._difficulty * 1.2 * 1000) / 1000;
+            this._regenerateSettings(newDifficulty);
             this._sendSettings();
-        } else if (sharesPerMinute === 0 || this._pool.config.desiredSps / sharesPerMinute > 2) {
-            this._difficulty = Math.max(this._pool.config.minDifficulty, Math.round(this._difficulty / 1.2 * 1000) / 1000);
-            this._regenerateExtraData();
+        } else if (sharesPerSecond === 0 || this._pool.config.desiredSps / sharesPerSecond > 2) {
+            const newDifficulty = Math.max(this._pool.config.minDifficulty, Math.round(this._difficulty / 1.2 * 1000) / 1000);
+            this._regenerateSettings(newDifficulty);
             this._sendSettings();
         }
         this._sharesSinceReset = 0;
@@ -423,7 +436,11 @@ class PoolAgent extends Nimiq.Observable {
         this._nonce = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
     }
 
-    _regenerateExtraData() {
+    _regenerateSettings(newDifficulty = this._difficulty) {
+        this._difficultyOld = this._difficulty;
+        this._extraDataOld = this._extraData;
+
+        this._difficulty = newDifficulty;
         this._extraData = new Nimiq.SerialBuffer(this._pool.name.length + this._address.serializedSize + 9);
         this._extraData.write(Nimiq.BufferUtils.fromAscii(this._pool.name));
         this._extraData.writeUint8(0);
@@ -458,6 +475,7 @@ class PoolAgent extends Nimiq.Observable {
         this._ws.close();
     }
 }
+
 PoolAgent.MESSAGE_REGISTER = 'register';
 PoolAgent.MESSAGE_REGISTERED = 'registered';
 PoolAgent.MESSAGE_PAYOUT = 'payout';
