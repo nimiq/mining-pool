@@ -169,7 +169,8 @@ class PoolAgent extends Nimiq.Observable {
             this._pool.requestCurrentHead(this);
         }
         await this.sendBalance();
-        this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 2);
+        this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 5);
+        this._timers.resetInterval('send-keep-alive-ping', () => this._ws.ping(), 1000 * 10);
 
         Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
