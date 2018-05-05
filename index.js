@@ -78,7 +78,8 @@ for (const seedPeer of config.seedPeers) {
 
     if (config.poolServer.enabled) {
         const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
-
+	poolServer.start();
+	
         if (config.poolMetricsServer.enabled) {
             $.metricsServer = new MetricsServer(config.poolServer.sslKeyPath, config.poolServer.sslCertPath, config.poolMetricsServer.port, config.poolMetricsServer.password);
             $.metricsServer.init(poolServer);
