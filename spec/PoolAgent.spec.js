@@ -91,6 +91,45 @@ describe('PoolAgent', () => {
         })().catch(done.fail);
     });
 
+    it('does not alow to submit shares twice (smart mode)', (done) => {
+        (async () => {
+            const consensus = await Nimiq.Consensus.volatileFull();
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
+            await poolServer.start();
+
+            const time = new Nimiq.Time();
+            spyOn(time, 'now').and.callFake(() => 0);
+
+            const poolAgent = new PoolAgent(poolServer, {
+                close: () => {},
+                send: async (json) => {
+                    const msg = JSON.parse(json);
+                    if (msg.message === 'settings') {
+                        const poolAddress = Nimiq.Address.fromUserFriendlyAddress(msg.address);
+                        const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
+                        const target = parseFloat(msg.target);
+
+                        let userId = await poolServer.getStoreUserId(NQ43sampleData.address);
+
+                        // valid share
+                        let shareMsg = await generateBlockMessage(poolAddress, extraData, time, target);
+                        await poolAgent._onMessage(shareMsg);
+                        let hash = Nimiq.BlockHeader.unserialize(Nimiq.BufferUtils.fromBase64(shareMsg.blockHeader)).hash();
+                        expect(await poolServer.containsShare(userId, hash)).toBeTruthy();
+
+                        // Submit valid share twice
+                        try {
+                            await poolAgent._onMessage(shareMsg);
+                        } catch (e) {
+                            done();
+                        }
+                    }
+                }
+            }, Nimiq.NetAddress.fromIP('1.2.3.4'));
+            await poolAgent._onMessage(NQ43sampleData.register);
+        })().catch(done.fail);
+    });
+
     it('does not count shares onto old blocks (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
