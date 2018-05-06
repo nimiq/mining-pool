@@ -32,6 +32,18 @@
     levelup "^2.0.2"
     node-lmdb "0.5.1"
 
+"@nimiq/jungle-db@^0.9.14-alpha":
+  version "0.9.14-alpha"
+  resolved "https://registry.yarnpkg.com/@nimiq/jungle-db/-/jungle-db-0.9.14-alpha.tgz#65fe49bf345edb82cc6ec1666e18078ad6e0a32b"
+  dependencies:
+    atob "^2.0.3"
+    btoa "^1.1.2"
+    fs "^0.0.1-security"
+    level-sublevel "^6.6.1"
+    leveldown "^3.0.0"
+    levelup "^2.0.2"
+    node-lmdb paberr/node-lmdb#af876c67055cc7cf0b3c1949e472484aa34410de
+
 abstract-leveldown@~0.12.1:
   version "0.12.4"
   resolved "https://registry.yarnpkg.com/abstract-leveldown/-/abstract-leveldown-0.12.4.tgz#29e18e632e60e4e221d5810247852a63d7b2e410"
@@ -520,6 +532,13 @@ node-abi@^2.2.0:
 node-lmdb@0.5.1:
   version "0.5.1"
   resolved "https://registry.yarnpkg.com/node-lmdb/-/node-lmdb-0.5.1.tgz#a1ac3a8641ccd22512d0d8da17569547ef4b1a25"
+  dependencies:
+    bindings "^1.2.1"
+    nan "^2.6.2"
+
+"node-lmdb@github:paberr/node-lmdb#af876c67055cc7cf0b3c1949e472484aa34410de":
+  version "0.5.4"
+  resolved "https://codeload.github.com/paberr/node-lmdb/tar.gz/af876c67055cc7cf0b3c1949e472484aa34410de"
   dependencies:
     bindings "^1.2.1"
     nan "^2.6.2"
