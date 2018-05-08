@@ -1,12 +1,13 @@
-const Nimiq = require('@nimiq/core');
 const https = require('https');
 const WebSocket = require('uws');
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 
+const Nimiq = require('@nimiq/core');
+const JungleDb = require('@nimiq/jungle-db');
+
 const PoolAgent = require('./PoolAgent.js');
 const Helper = require('./Helper.js');
-const LRUMap = require('./util/LRUMap.js');
 
 class PoolServer extends Nimiq.Observable {
     /**
@@ -78,11 +79,11 @@ class PoolServer extends Nimiq.Observable {
         /** @type {boolean} */
         this._started = false;
 
-        /** @type {LRUMap} */
-        this._userAddressToId = new LRUMap(200);
+        /** @type {JungleDb.LRUMap} */
+        this._userAddressToId = new JungleDb.LRUMap(200);
 
-        /** @type {LRUMap} */
-        this._blockHashToId = new LRUMap(10);
+        /** @type {JungleDb.LRUMap} */
+        this._blockHashToId = new JungleDb.LRUMap(10);
 
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
 
