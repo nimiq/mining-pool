@@ -19,15 +19,15 @@ class PoolAgent extends Nimiq.Observable {
         /** @type {PoolAgent.Mode} */
         this.mode = PoolAgent.Mode.UNREGISTERED;
 
-        /** @type {Uint8Array} */
+        /** @type {Nimiq.SerialBuffer} */
         this._extraData = null;
-        /** @type {number} */
-        this._difficulty = this._pool.config.startDifficulty;
+        /** @type {Nimiq.BigNumber} */
+        this._difficulty = new Nimiq.BigNumber(this._pool.config.startDifficulty);
 
         // Store old extra data + difficulty to allow smart clients to be one settings change off.
         /** @type {Uint8Array} */
         this._extraDataOld = null;
-        /** @type {number} */
+        /** @type {Nimiq.BigNumber} */
         this._difficultyOld = this._difficulty;
 
         /** @type {number} */
@@ -42,9 +42,20 @@ class PoolAgent extends Nimiq.Observable {
         /** @type {boolean} */
         this._registered = false;
 
+        /** @type {number} */
+        this._nonce = 0;
+        this._regenerateNonce();
+
+        /** @type {number} */
+        this._sessionNonce = PoolAgent._generateSessionNonce();
+
         /** @type {Nimiq.Timers} */
         this._timers = new Nimiq.Timers();
         this._timers.resetTimeout('connection-timeout', () => this._onError(), this._pool.config.connectionTimeout);
+    }
+
+    static _generateSessionNonce() {
+        return Nimiq.NumberUtils.randomUint32();
     }
 
     /**
@@ -283,6 +294,7 @@ class PoolAgent extends Nimiq.Observable {
         if (prevBlock !== null) {
             const successors = await this._pool.consensus.blockchain.getSuccessorBlocks(prevBlock, true);
             if (successors.length > 0) {
+                Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (smart): share expired`);
                 this._sendError('share expired');
                 return;
             }
@@ -391,11 +403,11 @@ class PoolAgent extends Nimiq.Observable {
         const sharesPerSecond = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastSpsReset);
         Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerSecond.toFixed(2)} at difficulty ${this._difficulty}`);
         if (sharesPerSecond / this._pool.config.desiredSps > 2) {
-            const newDifficulty = Math.round(this._difficulty * 1.2 * 1000) / 1000;
+            const newDifficulty = this._difficulty.times(1.2);
             this._regenerateSettings(newDifficulty);
             this._sendSettings();
         } else if (sharesPerSecond === 0 || this._pool.config.desiredSps / sharesPerSecond > 2) {
-            const newDifficulty = Math.max(this._pool.config.minDifficulty, Math.round(this._difficulty / 1.2 * 1000) / 1000);
+            const newDifficulty = Math.max(this._pool.config.minDifficulty, this._difficulty.div(1.2));
             this._regenerateSettings(newDifficulty);
             this._sendSettings();
         }
@@ -432,7 +444,6 @@ class PoolAgent extends Nimiq.Observable {
     }
 
     _regenerateNonce() {
-        /** @type {number} */
         this._nonce = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
     }
 
@@ -445,7 +456,7 @@ class PoolAgent extends Nimiq.Observable {
         this._extraData.write(Nimiq.BufferUtils.fromAscii(this._pool.name));
         this._extraData.writeUint8(0);
         this._address.serialize(this._extraData);
-        this._extraData.writeUint32(this._deviceId);
+        this._extraData.writeUint32(this._sessionNonce);
         this._extraData.writeUint32(Nimiq.BlockUtils.difficultyToCompact(this._difficulty));
     }
 

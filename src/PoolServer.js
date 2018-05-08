@@ -280,13 +280,13 @@ class PoolServer extends Nimiq.Observable {
      * @param {number} deviceId
      * @param {Nimiq.Hash} prevHash
      * @param {number} prevHashHeight
-     * @param {number} difficulty
+     * @param {Nimiq.BigNumber} difficulty
      * @param {Nimiq.Hash} shareHash
      */
     async storeShare(userId, deviceId, prevHash, prevHashHeight, difficulty, shareHash) {
         const prevHashId = await this._getStoreBlockId(prevHash, prevHashHeight);
         const query = "INSERT INTO share (user, device, datetime, prev_block, difficulty, hash) VALUES (?, ?, ?, ?, ?, ?)";
-        const queryArgs = [userId, deviceId, Date.now(), prevHashId, difficulty, shareHash.serialize()];
+        const queryArgs = [userId, deviceId, Date.now(), prevHashId, +difficulty, shareHash.serialize()];
         await this.connectionPool.execute(query, queryArgs);
     }
 
