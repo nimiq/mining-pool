@@ -32,25 +32,51 @@ Nimiq.GenesisConfig.CONFIGS['tests'] = {
 };
 Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS['tests']);
 
+async function dropDatabase(connection) {
+    try {
+        const data = fs.readFileSync('./sql/drop.sql', 'utf8');
+        connection = await mysql.createConnection({
+            host: 'localhost',
+            user: 'root',
+            password: 'root',
+            multipleStatements: true
+        });
+        await connection.query(data);
+    } catch (e) {
+        // Ignore, this is supposed to happen if prior tests did fail.
+    }
+}
+
+async function createDatabase(connection) {
+    const data = fs.readFileSync('./sql/create.sql', 'utf8');
+    await connection.query(data);
+}
+
+beforeAll((done) => {
+    (async () => {
+        const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
+        await dropDatabase(connection);
+        await connection.close();
+        done();
+    })().catch(done.fail);
+});
+
 beforeEach((done) => {
     (async () => {
-        try {
-            let data = fs.readFileSync('./sql/drop.sql', 'utf8');
-            connection = await mysql.createConnection({
-                host: 'localhost',
-                user: 'root',
-                password: 'root',
-                multipleStatements: true
-            });
-            await connection.query(data);
-        } catch (e) {
-            Nimiq.Log.w('Spec', e);
-        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
+        await createDatabase(connection);
+        await connection.close();
+        done();
+    })().catch(done.fail);
+});
 
-        data = fs.readFileSync('./sql/create.sql', 'utf8');
-        connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
-        await connection.query(data);
-
+afterEach((done) => {
+    (async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
+        await dropDatabase(connection);
+        await connection.close();
         done();
     })().catch(done.fail);
 });
