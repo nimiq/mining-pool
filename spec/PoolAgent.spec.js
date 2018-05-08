@@ -179,13 +179,16 @@ describe('PoolAgent', () => {
             const time = new Nimiq.Time();
             spyOn(time, 'now').and.callFake(() => 0);
 
+            let settingsMsg;
             const poolAgent = new PoolAgent(poolServer, {
                 close: () => { },
                 send: async (json) => {
                     const msg = JSON.parse(json);
                     if (msg.message === 'settings') {
-                        const extraData = Nimiq.BufferUtils.fromBase64(msg.extraData);
-                        const target = parseFloat(msg.target);
+                        settingsMsg = msg;
+                    } else if (msg.message == 'balance') {
+                        const extraData = Nimiq.BufferUtils.fromBase64(settingsMsg.extraData);
+                        const target = parseFloat(settingsMsg.target);
 
                         poolServer.config.allowedErrors = 2;
 
