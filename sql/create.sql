@@ -55,6 +55,44 @@ CREATE TABLE pool.payout_request (
   user         INTEGER    NOT NULL UNIQUE REFERENCES pool.user(id)
 );
 
+DELIMITER //
+
+CREATE PROCEDURE pool.StoreUserId(IN address VARCHAR(64), OUT user_id INTEGER)
+SQL SECURITY INVOKER
+BEGIN
+    SELECT id INTO user_id FROM user WHERE user.address = address;
+    IF ISNULL(user_id) THEN
+        INSERT IGNORE INTO user (address) VALUES (address);
+        SELECT id INTO user_id FROM user WHERE user.address = address;
+    END IF;
+END //
+
+CREATE PROCEDURE pool.GetStoreUserId(IN address VARCHAR(64))
+SQL SECURITY INVOKER
+BEGIN
+    CALL pool.StoreUserId(address, @user_id);
+    SELECT @user_id AS id;
+END //
+
+CREATE PROCEDURE pool.StoreBlockId(IN hash BINARY(32), IN height INTEGER, OUT block_id INTEGER)
+SQL SECURITY INVOKER
+BEGIN
+    SELECT id INTO block_id FROM block WHERE block.hash = hash;
+    IF ISNULL(block_id) THEN
+        INSERT IGNORE INTO block (hash, height) VALUES (hash, height);
+        SELECT id INTO block_id FROM block WHERE block.hash = hash;
+    END IF;
+END //
+
+CREATE PROCEDURE pool.GetStoreBlockId(IN hash BINARY(32), IN height INTEGER)
+SQL SECURITY INVOKER
+BEGIN
+    CALL pool.StoreBlockId(hash, height, @block_id);
+    SELECT @block_id AS id;
+END //
+
+DELIMITER ;
+
 GRANT SELECT,INSERT ON pool.user TO 'pool_server'@'localhost';
 GRANT SELECT ON pool.user TO 'pool_service'@'localhost';
 GRANT SELECT ON pool.user TO 'pool_payout'@'localhost';
@@ -82,3 +120,6 @@ GRANT SELECT ON pool.payout TO 'pool_info'@'localhost';
 GRANT SELECT,INSERT,DELETE ON pool.payout_request TO 'pool_server'@'localhost';
 GRANT SELECT,DELETE ON pool.payout_request TO 'pool_payout'@'localhost';
 GRANT SELECT ON pool.payout_request TO 'pool_info'@'localhost';
+
+GRANT EXECUTE ON pool.* TO 'pool_server'@'localhost';
+GRANT EXECUTE ON pool.* TO 'pool_service'@'localhost';

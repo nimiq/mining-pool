@@ -351,10 +351,8 @@ class PoolServer extends Nimiq.Observable {
     async getStoreUserId(addr) {
         let userId = this._userAddressToId.get(addr);
         if (!userId) {
-            await this.connectionPool.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
-            const [rows, fields] = await this.connectionPool.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
-            this._userAddressToId.set(addr, rows[0].id);
-            userId = rows[0].id;
+            userId = await Helper.getStoreUserId(this.connectionPool, addr);
+            this._userAddressToId.set(addr, userId);
         }
         return userId;
     }
