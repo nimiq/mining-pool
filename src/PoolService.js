@@ -40,8 +40,10 @@ class PoolService extends Nimiq.Observable {
             database: 'pool'
         });
 
-        this.consensus.blockchain.on('head-changed', (head) => this._distributePayinsForBlock(head));
-        this.consensus.blockchain.on('head-changed', (head) => this._synchronizer.push(() => this._setBlockOnMainChain(head, head.height, true)));
+        this.consensus.blockchain.on('head-changed', (head) => this._synchronizer.push(async () => {
+            await this._setBlockOnMainChain(head, head.height, true);
+            await this._distributePayinsForBlock(head);
+        }));
         this.consensus.blockchain.on('block-reverted', (head) => this._synchronizer.push(() => this._setBlockOnMainChain(head, head.height, false)));
     }
 
