@@ -55,6 +55,11 @@ CREATE TABLE pool.payout_request (
   user         INTEGER    NOT NULL UNIQUE REFERENCES pool.user(id)
 );
 
+CREATE TABLE pool.device (
+  id           INTEGER     PRIMARY KEY UNSIGNED NOT NULL,
+  label        VARCHAR(64) DEFAULT NULL
+);
+
 GRANT SELECT,INSERT ON pool.user TO 'pool_server'@'localhost';
 GRANT SELECT ON pool.user TO 'pool_service'@'localhost';
 GRANT SELECT ON pool.user TO 'pool_payout'@'localhost';
@@ -82,3 +87,6 @@ GRANT SELECT ON pool.payout TO 'pool_info'@'localhost';
 GRANT SELECT,INSERT,DELETE ON pool.payout_request TO 'pool_server'@'localhost';
 GRANT SELECT,DELETE ON pool.payout_request TO 'pool_payout'@'localhost';
 GRANT SELECT ON pool.payout_request TO 'pool_info'@'localhost';
+
+GRANT SELECT,INSERT,UPDATE ON pool.device TO 'pool_server'@'localhost';
+GRANT SELECT ON pool.device TO 'pool_info'@'localhost';
