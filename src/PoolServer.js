@@ -135,10 +135,9 @@ class PoolServer extends Nimiq.Observable {
     _onConnection(ws, req) {
         try {
             let netAddress = Nimiq.NetAddress.fromIP(req.connection.remoteAddress);
-            if (req.headers['x-forwarded-for']) {
-                // Some proxy services append their own IP to the end of the header value,
-                // but we only need the origin IP, so we take the first IP of the potential list
-                const ip = req.headers['x-forwarded-for'].split(/\s*,\s*/)[0];
+            if (this.config.parseXForwardedForHeader && req.headers['x-forwarded-for']) {
+                const xForwardedForSplit = req.headers['x-forwarded-for'].split(/\s*,\s*/);
+                const ip = xForwardedForSplit[xForwardedForSplit.length - 1];
                 netAddress = Nimiq.NetAddress.fromIP(ip);
             }
 

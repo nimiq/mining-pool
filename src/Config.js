@@ -61,7 +61,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         desiredSps: 0.2, // desired shares per second
         connectionTimeout: 60 * 1000 * 10, // 10 minutes
         pplnsShares: 1000,
-        allowedErrors: 3
+        allowedErrors: 3,
+        parseXForwardedForHeader: false
     },
     poolServer: {
         enabled: false,
