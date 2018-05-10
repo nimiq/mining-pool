@@ -32,53 +32,59 @@ Nimiq.GenesisConfig.CONFIGS['tests'] = {
 };
 Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS['tests']);
 
-async function dropDatabase(connection) {
+async function dropDatabase() {
     try {
         const data = fs.readFileSync('./sql/drop.sql', 'utf8');
-        connection = await mysql.createConnection({
+        const connection = await mysql.createConnection({
             host: 'localhost',
             user: 'root',
             password: 'root',
             multipleStatements: true
         });
         await connection.query(data);
+        await connection.close();
     } catch (e) {
         // Ignore, this is supposed to happen if prior tests did fail.
     }
 }
 
-async function createDatabase(connection) {
+async function createDatabase() {
+    const connection = await mysql.createConnection({host: 'localhost', user: 'root', password: 'root'});
     const data = fs.readFileSync('./sql/create.sql', 'utf8');
-    await connection.query(data);
+    let start = 0;
+    let length = 0;
+    let delimiter = ';';
+    while (start < data.length) {
+        let nextDelimiter = data.indexOf(delimiter, start);
+        let nextDelimiterChange = data.indexOf('\nDELIMITER', start);
+        if (nextDelimiter < 0) nextDelimiter = data.length;
+        if (nextDelimiterChange < 0) nextDelimiterChange = Number.MAX_VALUE;
+
+        if (nextDelimiterChange < nextDelimiter) {
+            const delimiterChangeEnd = data.indexOf('\n', nextDelimiterChange + 11);
+            delimiter = data.substring(nextDelimiterChange + 11, delimiterChangeEnd);
+            start = delimiterChangeEnd + 1;
+        } else {
+            const query = data.substring(start, nextDelimiter);
+            if (query.trim() != '') {
+                await connection.query(query);
+            }
+            start = nextDelimiter + delimiter.length;
+        }
+    }
+    await connection.close();
 }
 
 beforeAll((done) => {
-    (async () => {
-        const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
-        await dropDatabase(connection);
-        await connection.close();
-        done();
-    })().catch(done.fail);
+    dropDatabase().then(done, done.fail);
 });
 
 beforeEach((done) => {
-    (async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
-        await createDatabase(connection);
-        await connection.close();
-        done();
-    })().catch(done.fail);
+    createDatabase().then(done, done.fail);
 });
 
 afterEach((done) => {
-    (async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
-        await dropDatabase(connection);
-        await connection.close();
-        done();
-    })().catch(done.fail);
+    dropDatabase().then(done, done.fail);
 });
 
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 12000;
