@@ -55,12 +55,21 @@ class PoolService extends Nimiq.Observable {
         if (block.minerAddr.equals(this.poolAddress)) {
             const blockId = await Helper.getStoreBlockId(this.connectionPool, block.hash(), block.height);
             const [difficultyByAddress, totalDifficulty] = await this._getLastNShares(block, this._config.pplnsShares);
-            let payableBlockReward = Helper.getPayableBlockReward(this._config, block);
-            Nimiq.Log.i(PoolService, `Distributing payable value of ${Nimiq.Policy.satoshisToCoins(payableBlockReward)} NIM to ${difficultyByAddress.size} users`);
+            const blockReward = Helper.getBlockReward(block);
+            const customPoolFees = await Helper.getCustomPoolFees(this.connectionPool);
+            let totalPayout = 0;
+            Nimiq.Log.i(PoolService, `Distributing payments of ${Nimiq.Policy.satoshisToCoins(blockReward)} NIM to ${difficultyByAddress.size} users...`);
             for (const [addr, difficulty] of difficultyByAddress) {
-                const userReward = Math.floor(difficulty * payableBlockReward / totalDifficulty);
+                const address = addr.toString();
+                const fee = customPoolFees.has(address)
+                  ? customPoolFees.get(address)
+                  : this._config.poolFee;
+                const userReward = (1 - fee) * Math.floor(difficulty * blockReward / totalDifficulty);
                 await this._storePayin(addr, userReward, Date.now(), blockId);
+                totalPayout += userReward;
             }
+            Nimiq.Log.i(PoolService, `Distributed payable value of ${Nimiq.Policy.satoshisToCoins(totalPayout)} NIM.`);
+            Nimiq.Log.i(PoolService, `Collected ${Nimiq.Policy.satoshisToCoins(blockReward - totalPayout)} NIM in fees.`);
         }
     }
 

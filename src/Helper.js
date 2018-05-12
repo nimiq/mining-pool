@@ -1,6 +1,32 @@
 const Nimiq = require('@nimiq/core');
 
 class Helper {
+    /**
+     * @returns {Map<string, number>}
+     */
+    static async getCustomPoolFees(connectionPool) {
+      const query = `
+        SELECT u.address, s.fee
+          FROM special_rate AS s, user AS u
+          WHERE s.user = u.id
+          AND s.start < UNIX_TIMESTAMP(now()) * 1000
+          AND s.end > UNIX_TIMESTAMP(now()) * 1000;`;
+
+      const rows = await connectionPool.query(query);
+      return rows[0].reduce((map, row) => {
+        map.set(row.address, (row.fee || 0) / 10000);
+        return map;
+      }, new Map());
+    }
+
+    /**
+     * @param {PoolConfig} config
+     * @param {Nimiq.Block} block
+     * @returns {number}
+     */
+    static getBlockReward(block) {
+        return Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0);
+    }
 
     /**
      * @param {PoolConfig} config
@@ -8,7 +34,7 @@ class Helper {
      * @returns {number}
      */
     static getPayableBlockReward(config, block) {
-        return (1 - config.poolFee) * (Nimiq.Policy.blockRewardAt(block.height) + block.transactions.reduce((sum, tx) => sum + tx.fee, 0));
+        return (1 - config.poolFee) * getBlockReward(block);
     }
 
     /**

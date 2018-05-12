@@ -7,7 +7,7 @@ NQ25sampleData.address = Nimiq.Address.fromUserFriendlyAddress('NQ25 FGPF A68A T
 NQ25sampleData.register = {
     message: 'register',
     address: 'NQ25 FGPF A68A TBQ4 7KUU 3TFG 418D 1J49 HRLN',
-    deviceId: 6614501121,
+    deviceId: 614501121,
     mode: 'smart',
     genesisHash: Nimiq.BufferUtils.toBase64(Nimiq.GenesisConfig.GENESIS_HASH.serialize())
 };
