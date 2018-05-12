@@ -333,6 +333,18 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
+     * @param {number} deviceId
+     * @param {string} [deviceLabel]
+     */
+    async storeDeviceLabel(deviceId, deviceLabel) {
+        deviceLabel = deviceLabel
+          ? deviceLabel.slice(0, 64)
+          : null;
+        await this.connectionPool.execute("INSERT INTO device (id, label) VALUES (?, ?) ON DUPLICATE KEY UPDATE label=?",
+          [deviceId, deviceLabel, deviceLabel]);
+    }
+
+    /**
      * @param {PoolAgent} agent
      */
     removeAgent(agent) {
