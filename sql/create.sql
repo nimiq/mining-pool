@@ -60,6 +60,16 @@ CREATE TABLE pool.device (
   label        VARCHAR(64) DEFAULT NULL
 );
 
+CREATE TABLE pool.special_rate (
+  user         INTEGER     NOT NULL UNIQUE,
+  fee          INTEGER     NOT NULL,
+  start        BIGINT      NOT NULL,
+  end          BIGINT      NOT NULL
+);
+CREATE INDEX idx_special_rate_user ON pool.special_rate (user);
+CREATE INDEX idx_special_rate_start ON pool.special_rate (start);
+CREATE INDEX idx_special_rate_end ON pool.special_rate (end);
+
 GRANT SELECT,INSERT ON pool.user TO 'pool_server'@'localhost';
 GRANT SELECT ON pool.user TO 'pool_service'@'localhost';
 GRANT SELECT ON pool.user TO 'pool_payout'@'localhost';
@@ -90,3 +100,5 @@ GRANT SELECT ON pool.payout_request TO 'pool_info'@'localhost';
 
 GRANT SELECT,INSERT,UPDATE ON pool.device TO 'pool_server'@'localhost';
 GRANT SELECT ON pool.device TO 'pool_info'@'localhost';
+
+GRANT SELECT ON pool.special_rate TO 'pool_service'@'localhost';
