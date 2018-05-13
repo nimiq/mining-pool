@@ -70,7 +70,7 @@ class PoolService extends Nimiq.Observable {
             }
 
             const query = `INSERT INTO payin_total (block_height, amount) VALUES (?, ?)`;
-            await connectionPool.execute(query, [block.height || block.height(), totalPayout]);
+            await this.connectionPool.execute(query, [block.height || block.height(), totalPayout]);
 
             Nimiq.Log.i(PoolService, `Distributed payable value of ${Nimiq.Policy.satoshisToCoins(totalPayout)} NIM.`);
             Nimiq.Log.i(PoolService, `Collected ${Nimiq.Policy.satoshisToCoins(blockReward - totalPayout)} NIM in fees.`);
