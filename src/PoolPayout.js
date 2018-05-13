@@ -189,7 +189,16 @@ class PoolPayout extends Nimiq.Observable {
                 Nimiq.Log.e(PoolPayout, `Wrong miner address in block ${block.hash()}`);
                 return false;
             }
-            const payableBlockReward = Helper.getPayableBlockReward(this._config, block);
+
+            const query = `SELECT amount FROM payin_total WHERE block_height = ?`;
+            const result = await this.connectionPool.execute(query, [block.height || block.height()]);
+
+            if (!result || !result[0] || !result[0][0]) {
+                Nimiq.Log.e(PoolPayout, `No stored payins found in payin_total for block ${block.height || block.height()}`);
+                return false;
+            }
+
+            const payableBlockReward = parseInt(result[0][0].amount, 10) - 1;
             if (row.payin_sum > payableBlockReward) {
                 Nimiq.Log.e(PoolPayout, `Stored payins are greater than the payable block reward for block ${block.hash()}`);
                 return false;
