@@ -32,9 +32,16 @@ describe('PoolService', () => {
 
             const poolService = new PoolService(consensus, POOL_CONFIG);
             await poolService.start();
+/*
+            await poolService.connectionPool.query(`INSERT INTO special_rate (user, fee, start, end)
+              VALUES (3, 200, 1526151600000, 1534100400000);`)
+
+            await poolServer.connectionPool.query(`INSERT INTO user (address) VALUES ('ARxwHJXfCdDXoM0qhS83hykIo/w=');`)
+            await poolServer.connectionPool.query(`INSERT INTO user (address) VALUES ('YAkh2a/HRKfGYXhLz2n1aqV2xV0=');`)
+            */
 
             // console.log(await consensus.blockchain.pushBlock(ChainSampleData.block1));
-            await poolService._distributePayinsForBlock(ChainSampleData.block1);
+            await poolService._distributePayinsForBlock(ChainSampleData.block2);
             done();
         })().catch(done.fail);
     });

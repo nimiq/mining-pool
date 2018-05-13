@@ -193,7 +193,7 @@ describe('PoolAgent', () => {
                 return Nimiq.SignatureProof.singleSig(usedKeyPair.publicKey, signature);
             }
 
-            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', database: 'pool', multipleStatements: true });
+            const connection = await mysql.createConnection({ host: 'localhost', user: 'root', database: 'pool', multipleStatements: true });
 
             // garbage signature
             let request = { message: 'payout', proof: 'AAAAAAAAAAAAAAAAAAaaaaaaaa' };

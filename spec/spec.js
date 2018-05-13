@@ -39,7 +39,6 @@ beforeEach((done) => {
             connection = await mysql.createConnection({
                 host: 'localhost',
                 user: 'root',
-                password: 'root',
                 multipleStatements: true
             });
             await connection.query(data);
@@ -48,7 +47,7 @@ beforeEach((done) => {
         }
 
         data = fs.readFileSync('./sql/create.sql', 'utf8');
-        connection = await mysql.createConnection({ host: 'localhost', user: 'root', password: 'root', multipleStatements: true });
+        connection = await mysql.createConnection({ host: 'localhost', user: 'root', multipleStatements: true });
         await connection.query(data);
 
         done();

@@ -135,6 +135,7 @@ class PoolAgent extends Nimiq.Observable {
 
         this._address = Nimiq.Address.fromUserFriendlyAddress(msg.address);
         this._deviceId = msg.deviceId;
+        this._deviceLabel = msg.deviceLabel;
         switch (msg.mode) {
             case PoolAgent.MODE_SMART:
                 this.mode = PoolAgent.Mode.SMART;
@@ -156,6 +157,9 @@ class PoolAgent extends Nimiq.Observable {
         this._lastSpsReset = Date.now();
         this._timers.resetTimeout('recalc-difficulty', () => this._recalcDifficulty(), this._pool.config.spsTimeUnit);
         this._userId = await this._pool.getStoreUserId(this._address);
+        if (this._deviceId) {
+          await this._pool.storeDeviceLabel(this._deviceId, this._deviceLabel);
+        }
         this._regenerateNonce();
         this._regenerateExtraData();
 
@@ -172,7 +176,8 @@ class PoolAgent extends Nimiq.Observable {
         this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 5);
         this._timers.resetInterval('send-keep-alive-ping', () => this._ws.ping(), 1000 * 10);
 
-        Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
+        Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()} device: `
+          + `${this._deviceId}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
 
     /**
