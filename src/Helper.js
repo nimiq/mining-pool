@@ -46,26 +46,8 @@ class Helper {
      * @returns {Promise.<number>}
      */
     static async getUserBalance(config, connectionPool, userId, currChainHeight, includeVirtual = false) {
-        const query = `
-            SELECT IFNULL(payin_sum, 0) - IFNULL(payout_sum, 0) AS balance
-            FROM (
-                (
-                    SELECT user, SUM(amount) AS payin_sum
-                    FROM payin p
-                    INNER JOIN block b ON b.id = p.block
-                    WHERE p.user = ? AND b.main_chain = true AND b.height <= ?
-                ) t1
-                LEFT JOIN
-                (
-                    SELECT user, SUM(amount) AS payout_sum
-                    FROM payout
-                    WHERE user = ?
-                ) t2
-                ON t2.user = t1.user
-            )`;
-        const queryHeight = includeVirtual ? currChainHeight : currChainHeight - config.payoutConfirmations;
-        const queryArgs = [userId, queryHeight, userId];
-        const [rows, fields] = await connectionPool.execute(query, queryArgs);
+        const query = `CALL getBalanceById(?)`;
+        const [rows, fields] = await connectionPool.execute(query, [userId]);
         if (rows.length === 1) {
             return rows[0].balance;
         }
