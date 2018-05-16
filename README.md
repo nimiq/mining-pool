@@ -17,6 +17,17 @@ While the server(s) and the service are designed to run continuously, the pool p
 ## Run
 Run `node index.js --config=[CONFIG_FILE]`. See `[server|service|payout].sample.conf` for sample configuration files and clarifications.
 
+## Custom Behavior
+The pool server supports custom behaviors through the optional `eventHandlers.js` file. Code written here
+will be run every time a specific event occurs. The currently supported events are:
+
+* **beforeRegister** - Called on a *server* configuration when a register message is received, before
+    setting up the `PoolAgent`.
+* **onRegister** - Called on a *server* configuration after a `PoolAgent` has successfully been registered.
+
+See `eventHandlers.sample.js` for the template. To use, copy to a new file: `eventHandlers.js`, and add your
+own logic inside the defined callbacks. The pool server will automatically include this file if it exists.
+
 ## License
     Copyright 2018 The Nimiq Foundation
 

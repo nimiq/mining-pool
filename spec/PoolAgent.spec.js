@@ -224,4 +224,44 @@ describe('PoolAgent', () => {
             done();
         })().catch(done.fail);
     });
+
+    it('fires eventHandler callbacks', (done) => {
+        (async () => {
+            const keyPair = Nimiq.KeyPair.generate();
+            const clientAddress = keyPair.publicKey.toAddress();
+            const consensus = await Nimiq.Consensus.volatileFull();
+
+            let beforeCalled = false;
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', 'localhost', '', '', {
+                beforeRegister: (msg, connectionPool) => {
+                    expect(msg.deviceId).toEqual(111111111);
+                    msg.deviceId = 123;
+                    beforeCalled = true;
+                },
+                onRegister: async (agent, connectionPool) => {
+                    expect(agent.deviceId).toEqual(123);
+                    expect(agent.deviceData).toEqual({ deviceGroup: 'foobar' });
+                    expect(beforeCalled).toEqual(true);
+                    done();
+                }
+            });
+
+            await poolServer.start();
+            const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {} }, Nimiq.NetAddress.fromIP('1.2.3.4'));
+            spyOn(poolAgent, '_regenerateNonce').and.callFake(() => { poolAgent._nonce = 42 });
+
+            const registerMsg = {
+                message: 'register',
+                address: clientAddress.toUserFriendlyAddress(),
+                deviceId: 111111111,
+                deviceData: {
+                  deviceGroup: 'foobar'
+                },
+                mode: 'smart',
+                genesisHash: Nimiq.BufferUtils.toBase64(Nimiq.GenesisConfig.GENESIS_HASH.serialize())
+            };
+
+            await poolAgent._onMessage(registerMsg);
+        })().catch(done.fail);
+    });
 });
