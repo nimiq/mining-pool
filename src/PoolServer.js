@@ -21,7 +21,7 @@ class PoolServer extends Nimiq.Observable {
      * @param {number} port
      * @param {string} mySqlPsw
      * @param {string} mySqlWriteHost
-     * @param {string} mySqlReadHost
+     * @param {string} [mySqlReadHost]
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
      */
@@ -114,19 +114,21 @@ class PoolServer extends Nimiq.Observable {
         this._currentLightHead = this.consensus.blockchain.head.toLight();
         await this._updateTransactions();
 
-        this.readPool = await mysql.createPool({
-            host: this._mySqlReadHost,
-            user: 'pool_server',
-            password: this._mySqlPsw,
-            database: 'pool'
-        });
-
         this.writePool = await mysql.createPool({
             host: this._mySqlWriteHost,
             user: 'pool_server',
             password: this._mySqlPsw,
             database: 'pool'
         });
+
+        this.readPool = !this._mySqlReadHost
+            ? this.writePool
+            : await mysql.createPool({
+                  host: this._mySqlReadHost,
+                  user: 'pool_server',
+                  password: this._mySqlPsw,
+                  database: 'pool'
+              });
 
         this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath);
         this._wss.on('connection', (ws, req) => this._onConnection(ws, req));
@@ -332,7 +334,7 @@ class PoolServer extends Nimiq.Observable {
         this._shareTimeout = setTimeout(() => {
             this._storeShares().then(this._sharesDeferred.resolve, this._sharesDeferred.reject);
         }, PoolServer.INSERT_INTERVAL);
-        
+
         return this._sharesDeferred.promise;
     }
 
@@ -393,7 +395,7 @@ class PoolServer extends Nimiq.Observable {
      */
     async getStoreUserId(addr) {
         await this.writePool.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
-        const [rows, fields] = await this.readPool.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
+        const [rows, fields] = await this.writePool.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
         return rows[0].id;
     }
 

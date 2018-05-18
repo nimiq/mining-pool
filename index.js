@@ -83,7 +83,7 @@ for (const seedPeer of config.seedPeers) {
             config.poolServer.port,
             config.poolServer.mySqlPsw,
             config.poolServer.mySqlHost,
-            config.poolServer.mySqlReadHost || config.poolServer.mySqlHost,
+            config.poolServer.mySqlReadHost,
             config.poolServer.sslKeyPath,
             config.poolServer.sslCertPath);
 
