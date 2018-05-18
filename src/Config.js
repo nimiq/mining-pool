@@ -69,7 +69,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         sslCertPath: null,
         sslKeyPath: null,
         mySqlPsw: null,
-        mySqlHost: null
+        mySqlHost: null,
+        mySqlReadHost: null
     },
     poolService: {
         enabled: false,
@@ -134,7 +135,8 @@ const CONFIG_TYPES = {
             certPath: 'string',
             keyPath: 'string',
             mySqlPsw: 'string',
-            mySqlHost: 'string'
+            mySqlHost: 'string',
+            mySqlReadHost: 'string'
         }
     },
     poolService: {

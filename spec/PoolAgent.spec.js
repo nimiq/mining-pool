@@ -94,7 +94,7 @@ describe('PoolAgent', () => {
     it('does not count shares onto old blocks (smart mode)', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '', '');
             await poolServer.start();
 
             let fixFakeTime = 0;
@@ -135,7 +135,7 @@ describe('PoolAgent', () => {
     it('bans clients with too many invalid shares', (done) => {
         (async () => {
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', '', '', '', '');
             await poolServer.start();
             const time = new Nimiq.Time();
             spyOn(time, 'now').and.callFake(() => 0);
@@ -171,7 +171,7 @@ describe('PoolAgent', () => {
             const clientAddress = keyPair.publicKey.toAddress();
 
             const consensus = await Nimiq.Consensus.volatileFull();
-            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', 'localhost', '', '');
+            const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', 'localhost', 'localhost', '', '');
             await poolServer.start();
             const poolAgent = new PoolAgent(poolServer, { close: () => {}, send: () => {} }, Nimiq.NetAddress.fromIP('1.2.3.4'));
             spyOn(poolAgent, '_regenerateNonce').and.callFake(() => { poolAgent._nonce = 42 });
