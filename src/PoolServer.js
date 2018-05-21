@@ -38,7 +38,7 @@ class PoolServer extends Nimiq.Observable {
 
         /** @type {EventHandlers} */
         this.eventHandlers = Object.assign({
-          onRegisterMessage: () => { },
+          onRegisterMessage: async () => { },
           onRegistrationCompleted: async () => { }
         }, eventHandlers);
 

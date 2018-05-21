@@ -233,7 +233,7 @@ describe('PoolAgent', () => {
 
             let beforeCalled = false;
             const poolServer = new PoolServer(consensus, POOL_CONFIG, 9999, '', 'localhost', '', '', {
-                onRegisterMessage: (agent, msg, connectionPool) => {
+                onRegisterMessage: async (agent, msg, connectionPool) => {
                     expect(msg.deviceId).toEqual(111111111);
                     msg.deviceId = 123;
                     beforeCalled = true;

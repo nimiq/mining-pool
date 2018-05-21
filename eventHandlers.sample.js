@@ -15,7 +15,7 @@
  *   if registration should not continue.
  * @returns {void}
  */
-module.exports.onRegisterMessage = function onRegisterMessage(agent, msg, connectionPool) { }
+module.exports.onRegisterMessage = async function onRegisterMessage(agent, msg, connectionPool) { }
 
 /**
  * Fired when a new PoolAgent is registered to the PoolServer.
