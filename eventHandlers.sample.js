@@ -4,8 +4,9 @@
  */
 
 /**
- * Fired when a REGISTER message is received, before creating a corresponding
+ * Fired when a REGISTER message is received, before being processed by the
  *   PoolAgent. Good time to perform validation or mutation of message data.
+ * @param {PoolAgent} agent - The Agent for the newly registered device.
  * @param {Object} msg - The full register message. This is not a copy; any
  *   mutation will affect the data used to create the PoolAgent.
  * @param {mysql.PoolConnection} connectionPool - A MySQL connection pool,
@@ -14,7 +15,7 @@
  *   if registration should not continue.
  * @returns {void}
  */
-module.exports.beforeRegister = function beforeRegister(msg, connectionPool) { }
+module.exports.onRegisterMessage = function onRegisterMessage(agent, msg, connectionPool) { }
 
 /**
  * Fired when a new PoolAgent is registered to the PoolServer.
@@ -23,4 +24,4 @@ module.exports.beforeRegister = function beforeRegister(msg, connectionPool) { }
  *   logged in as 'pool_server'.
  * @returns {void}
  */
-module.exports.onRegister = async function onRegister(agent, connectionPool) { }
+module.exports.onRegistrationCompleted = async function onRegistrationCompleted(agent, connectionPool) { }

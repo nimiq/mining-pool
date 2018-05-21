@@ -37,30 +37,6 @@ class PoolAgent extends Nimiq.Observable {
         /** @type {Nimiq.Timers} */
         this._timers = new Nimiq.Timers();
         this._timers.resetTimeout('connection-timeout', () => this._onError(), this._pool.config.connectionTimeout);
-
-        // Public interface
-        Object.defineProperties(this, {
-          /** @type {object} */
-          deviceData: {
-            enumerable: true,
-            get: () => this._deviceData
-          },
-          /** @type {number} */
-          deviceId: {
-            enumerable: true,
-            get: () => this._deviceId
-          },
-          /** @type {PoolAgent.Mode} */
-          mode: {
-            enumerable: true,
-            get: () => this._mode
-          },
-          /** @type {boolean} */
-          isRegistered: {
-            enumerable: true,
-            get: () => this._registered
-          }
-        });
     }
 
     /**
@@ -158,7 +134,7 @@ class PoolAgent extends Nimiq.Observable {
         }
 
         try {
-          this._pool.eventHandlers.beforeRegister(msg, this._pool.connectionPool);
+          this._pool.eventHandlers.onRegisterMessage(this, msg, this._pool.connectionPool);
         } catch (e) {
           this._sendError(e.message);
           return;
@@ -204,7 +180,7 @@ class PoolAgent extends Nimiq.Observable {
         this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 5);
         this._timers.resetInterval('send-keep-alive-ping', () => this._ws.ping(), 1000 * 10);
 
-        this._pool.eventHandlers.onRegister(this, this._pool.connectionPool);
+        this._pool.eventHandlers.onRegistrationCompleted(this, this._pool.connectionPool);
         Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
     }
 
@@ -491,6 +467,27 @@ class PoolAgent extends Nimiq.Observable {
         this._registered = false;
         this._pool.removeAgent(this);
         this._ws.close();
+    }
+
+
+    /** @type {object} */
+    get deviceData() {
+      return this._deviceData;
+    }
+
+    /** @type {number} */
+    get deviceId() {
+      return this._deviceId;
+    }
+
+    /** @type {PoolAgent.Mode} */
+    get mode() {
+      return this._mode;
+    }
+
+    /** @type {boolean} */
+    get isRegistered() {
+      return this._registered;
     }
 }
 PoolAgent.MESSAGE_REGISTER = 'register';

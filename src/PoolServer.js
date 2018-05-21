@@ -9,8 +9,8 @@ const Helper = require('./Helper.js');
 
 /**
  * @typedef EventHandlers
- * @property {function} beforeRegister
- * @property {function} onRegister
+ * @property {function} onRegisterMessage
+ * @property {function} onRegistrationCompleted
  */
 
 class PoolServer extends Nimiq.Observable {
@@ -38,8 +38,8 @@ class PoolServer extends Nimiq.Observable {
 
         /** @type {EventHandlers} */
         this.eventHandlers = Object.assign({
-          beforeRegister: () => { },
-          onRegister: async () => { }
+          onRegisterMessage: () => { },
+          onRegistrationCompleted: async () => { }
         }, eventHandlers);
 
         /** @type {PoolConfig} */
