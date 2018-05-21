@@ -1,0 +1,21 @@
+dist: trusty
+sudo: true
+
+language: node_js
+node_js:
+  - "9"
+cache: yarn
+
+addons:
+  mariadb: '10.0'
+
+before_install:
+  - sudo mysql -e "use mysql; update user set authentication_string=PASSWORD('root') where User='root'; update user set plugin='mysql_native_password';FLUSH PRIVILEGES;"
+  - sudo mysql_upgrade --password=root
+  - sudo service mysql restart
+
+install:
+  - yarn
+
+script:
+  - yarn run jasmine
