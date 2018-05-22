@@ -16,7 +16,7 @@ if (!config) {
     process.exit(1);
 }
 if (config.poolServer.enabled && config.type !== 'full') {
-    Nimig.Log.e(TAG, 'Pool server must run as a \'full\' node');
+    Nimiq.Log.e(TAG, 'Pool server must run as a \'full\' node');
     process.exit(1);
 }
 if (config.poolPayout.enabled && (config.poolServer.enabled || config.poolService.enabled)) {
