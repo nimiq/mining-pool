@@ -7,6 +7,12 @@ const fs = require('fs');
 const PoolAgent = require('./PoolAgent.js');
 const Helper = require('./Helper.js');
 
+/**
+ * @typedef EventHandlers
+ * @property {function} onRegisterMessage
+ * @property {function} onRegistrationCompleted
+ */
+
 class PoolServer extends Nimiq.Observable {
     /**
      * @param {Nimiq.FullConsensus} consensus
@@ -16,8 +22,9 @@ class PoolServer extends Nimiq.Observable {
      * @param {string} mySqlHost
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
+     * @param {EventHandlers} [eventHandlers]
      */
-    constructor(consensus, config, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath) {
+    constructor(consensus, config, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath, eventHandlers) {
         super();
 
         /** @type {Nimiq.FullConsensus} */
@@ -28,6 +35,12 @@ class PoolServer extends Nimiq.Observable {
 
         /** @type {Nimiq.Address} */
         this.poolAddress = Nimiq.Address.fromUserFriendlyAddress(config.address);
+
+        /** @type {EventHandlers} */
+        this.eventHandlers = Object.assign({
+          onRegisterMessage: async () => { },
+          onRegistrationCompleted: async () => { }
+        }, eventHandlers);
 
         /** @type {PoolConfig} */
         this._config = config;

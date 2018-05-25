@@ -1,6 +1,7 @@
 const Nimiq = require('@nimiq/core');
 const argv = require('minimist')(process.argv.slice(2));
 const config = require('./src/Config.js')(argv.config);
+const fs = require('fs');
 
 const PoolServer = require('./src/PoolServer.js');
 const PoolService = require('./src/PoolService.js');
@@ -23,6 +24,9 @@ if (config.poolPayout.enabled && (config.poolServer.enabled || config.poolServic
     Nimiq.Log.e(TAG, 'Pool payout needs to run separately from pool server');
     process.exit(1);
 }
+
+const eventHandlers = fs.existsSync('./eventHandlers.js')
+    ? require('./eventHandlers.js') : undefined;
 
 Nimiq.Log.instance.level = config.log.level;
 for (const tag in config.log.tags) {
@@ -77,7 +81,7 @@ for (const seedPeer of config.seedPeers) {
     }
 
     if (config.poolServer.enabled) {
-        const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
+        const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath, eventHandlers);
 
         if (config.poolMetricsServer.enabled) {
             $.metricsServer = new MetricsServer(config.poolServer.sslKeyPath, config.poolServer.sslCertPath, config.poolMetricsServer.port, config.poolMetricsServer.password);
