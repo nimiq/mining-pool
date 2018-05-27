@@ -7,17 +7,25 @@ const fs = require('fs');
 const PoolAgent = require('./PoolAgent.js');
 const Helper = require('./Helper.js');
 
+/**
+ * @typedef Deferred
+ * @property {Promise} promise
+ * @property {Function} resolve
+ * @property {Function} reject
+ */
+
 class PoolServer extends Nimiq.Observable {
     /**
      * @param {Nimiq.FullConsensus} consensus
      * @param {PoolConfig} config
      * @param {number} port
      * @param {string} mySqlPsw
-     * @param {string} mySqlHost
+     * @param {string} mySqlWriteHost
+     * @param {string} [mySqlReadHost]
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
      */
-    constructor(consensus, config, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath) {
+    constructor(consensus, config, port, mySqlPsw, mySqlWriteHost, mySqlReadHost, sslKeyPath, sslCertPath) {
         super();
 
         /** @type {Nimiq.FullConsensus} */
@@ -39,7 +47,10 @@ class PoolServer extends Nimiq.Observable {
         this._mySqlPsw = mySqlPsw;
 
         /** @type {string} */
-        this._mySqlHost = mySqlHost;
+        this._mySqlReadHost = mySqlReadHost;
+
+        /** @type {string} */
+        this._mySqlWriteHost = mySqlWriteHost;
 
         /** @type {string} */
         this._sslKeyPath = sslKeyPath;
@@ -74,6 +85,18 @@ class PoolServer extends Nimiq.Observable {
         /** @type {number} */
         this._averageHashrate = 0;
 
+        /** @type {Array[]} */
+        this._queuedShares = [];
+
+        /** @type {number} */
+        this._lastShareInsert = 0;
+
+        /** @type {number} */
+        this._lastKnownHeight = 0;
+
+        /** @type {Deferred} */
+        this._sharesDeferred = { };
+
         /** @type {boolean} */
         this._started = false;
 
@@ -91,12 +114,21 @@ class PoolServer extends Nimiq.Observable {
         this._currentLightHead = this.consensus.blockchain.head.toLight();
         await this._updateTransactions();
 
-        this.connectionPool = await mysql.createPool({
-            host: this._mySqlHost,
+        this.writePool = await mysql.createPool({
+            host: this._mySqlWriteHost,
             user: 'pool_server',
             password: this._mySqlPsw,
             database: 'pool'
         });
+
+        this.readPool = !this._mySqlReadHost
+            ? this.writePool
+            : await mysql.createPool({
+                  host: this._mySqlReadHost,
+                  user: 'pool_server',
+                  password: this._mySqlPsw,
+                  database: 'pool'
+              });
 
         this._wss = PoolServer.createServer(this.port, this._sslKeyPath, this._sslCertPath);
         this._wss.on('connection', (ws, req) => this._onConnection(ws, req));
@@ -276,10 +308,45 @@ class PoolServer extends Nimiq.Observable {
      * @param {Nimiq.Hash} shareHash
      */
     async storeShare(userId, deviceId, prevHash, prevHashHeight, difficulty, shareHash) {
-        let prevHashId = await Helper.getStoreBlockId(this.connectionPool, prevHash, prevHashHeight);
-        const query = "INSERT INTO share (user, device, datetime, prev_block, difficulty, hash) VALUES (?, ?, ?, ?, ?, ?)";
-        const queryArgs = [userId, deviceId, Date.now(), prevHashId, difficulty, shareHash.serialize()];
-        await this.connectionPool.execute(query, queryArgs);
+        let prevHashId;
+        if (prevHashHeight > this._lastKnownHeight) {
+            prevHashId = await Helper.getStoreBlockId(this.writePool, prevHash, prevHashHeight);
+            this._lastKnownHeight = prevHashHeight;
+        } else {
+            prevHashId = await Helper.getBlockId(this.readPool, prevHash);
+        }
+
+        this._queuedShares.push([userId, deviceId, Date.now(), prevHashId, difficulty, shareHash.serialize()]);
+
+        if (!this._sharesDeferred.promise) {
+            this._sharesDeferred.promise = new Promise((resolve, reject) => {
+                this._sharesDeferred.resolve = resolve;
+                this._sharesDeferred.reject = reject;
+            });
+        }
+
+        if (this._lastShareInsert < Date.now() - PoolServer.INSERT_INTERVAL) {
+            this._sharesDeferred.promise = null;
+            return this._storeShares().then(this._sharesDeferred.resolve, this._sharesDeferred.reject);
+        }
+
+        clearTimeout(this._shareTimeout);
+        this._shareTimeout = setTimeout(() => {
+            this._storeShares().then(this._sharesDeferred.resolve, this._sharesDeferred.reject);
+        }, PoolServer.INSERT_INTERVAL);
+
+        return this._sharesDeferred.promise;
+    }
+
+    _storeShares() {
+        this._lastShareInsert = Date.now();
+        clearTimeout(this._shareTimeout);
+
+        const shares = this._queuedShares.splice(0, this._queuedShares.length);
+        const query = `INSERT INTO share (user, device, datetime, prev_block, difficulty, hash)
+                       VALUES ${shares.map(() => '(?,?,?,?,?,?)').join(',')}`;
+        const queryArgs = [].concat.apply([], shares);
+        return this.writePool.execute(query, queryArgs);
     }
 
     /**
@@ -290,7 +357,7 @@ class PoolServer extends Nimiq.Observable {
     async containsShare(user, shareHash) {
         const query = "SELECT * FROM share WHERE user=? AND hash=?";
         const queryArgs = [user, shareHash.serialize()];
-        const [rows, fields] = await this.connectionPool.execute(query, queryArgs);
+        const [rows, fields] = await this.readPool.execute(query, queryArgs);
         return rows.length > 0;
     }
 
@@ -300,7 +367,7 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise<number>}
      */
     async getUserBalance(userId, includeVirtual = false) {
-        return await Helper.getUserBalance(this._config, this.connectionPool, userId, this.consensus.blockchain.height, includeVirtual);
+        return await Helper.getUserBalance(this._config, this.readPool, userId, this.consensus.blockchain.height, includeVirtual);
     }
 
     /**
@@ -309,7 +376,7 @@ class PoolServer extends Nimiq.Observable {
     async storePayoutRequest(userId) {
         const query = "INSERT IGNORE INTO payout_request (user) VALUES (?)";
         const queryArgs = [userId];
-        await this.connectionPool.execute(query, queryArgs);
+        await this.writePool.execute(query, queryArgs);
     }
 
     /**
@@ -318,7 +385,7 @@ class PoolServer extends Nimiq.Observable {
      */
     async hasPayoutRequest(userId) {
         const query = `SELECT * FROM payout_request WHERE user=?`;
-        const [rows, fields] = await this.connectionPool.execute(query, [userId]);
+        const [rows, fields] = await this.readPool.execute(query, [userId]);
         return rows.length > 0;
     }
 
@@ -327,8 +394,8 @@ class PoolServer extends Nimiq.Observable {
      * @returns {Promise.<number>}
      */
     async getStoreUserId(addr) {
-        await this.connectionPool.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
-        const [rows, fields] = await this.connectionPool.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
+        await this.writePool.execute("INSERT IGNORE INTO user (address) VALUES (?)", [addr.toBase64()]);
+        const [rows, fields] = await this.writePool.execute("SELECT id FROM user WHERE address=?", [addr.toBase64()]);
         return rows[0].id;
     }
 
@@ -403,5 +470,6 @@ class PoolServer extends Nimiq.Observable {
 PoolServer.DEFAULT_BAN_TIME = 1000 * 60 * 10; // 10 minutes
 PoolServer.UNBAN_IPS_INTERVAL = 1000 * 60; // 1 minute
 PoolServer.HASHRATE_INTERVAL = 1000 * 60; // 1 minute
+PoolServer.INSERT_INTERVAL = 1000; // 1 second
 
 module.exports = exports = PoolServer;
