@@ -42,6 +42,9 @@ class PoolAgent extends Nimiq.Observable {
         /** @type {boolean} */
         this._registered = false;
 
+        /** @type {Nimiq.Address} */
+        this._address = null;
+
         /** @type {number} */
         this._nonce = 0;
         this._regenerateNonce();
@@ -219,7 +222,7 @@ class PoolAgent extends Nimiq.Observable {
         }
 
         try {
-            await this._pool.storeShare(this._userId, this._deviceId, block.header.prevHash, block.header.height - 1, this._difficulty, hash);
+            await this._pool.storeShare(this._userId, this._deviceId, block.header, this._difficulty);
         } catch (e) {
             this._sendError('submitted share twice');
             throw new Error('Client submitted share twice ' + e.message || e);
@@ -311,7 +314,7 @@ class PoolAgent extends Nimiq.Observable {
         }
 
         try {
-            await this._pool.storeShare(this._userId, this._deviceId, header.prevHash, header.height - 1, difficulty, hash);
+            await this._pool.storeShare(this._userId, this._deviceId, header, difficulty);
         } catch (e) {
             this._sendError('submitted share twice');
             throw new Error('Client submitted share twice ' + e.message || e);

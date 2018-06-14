@@ -65,7 +65,7 @@ describe('PoolAgent', () => {
                     const msg = JSON.parse(json);
                     if (msg.message === 'settings') {
                         settingsMsg = msg;
-                    } else if (msg.message == 'balance') {
+                    } else if (msg.message === 'balance') {
                         const poolAddress = Nimiq.Address.fromUserFriendlyAddress(settingsMsg.address);
                         const extraData = Nimiq.BufferUtils.fromBase64(settingsMsg.extraData);
                         const target = parseFloat(settingsMsg.target);
@@ -205,7 +205,7 @@ describe('PoolAgent', () => {
                     const msg = JSON.parse(json);
                     if (msg.message === 'settings') {
                         settingsMsg = msg;
-                    } else if (msg.message == 'balance') {
+                    } else if (msg.message === 'balance') {
                         const extraData = Nimiq.BufferUtils.fromBase64(settingsMsg.extraData);
                         const target = parseFloat(settingsMsg.target);
 

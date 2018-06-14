@@ -85,10 +85,11 @@ class Helper {
      * @param {mysql2.Pool} connectionPool
      * @param {Nimiq.Hash} blockHash
      * @param {number} height
+     * @param {number} timestamp
      * @returns {Promise.<number>}
      */
-    static async getStoreBlockId(connectionPool, blockHash, height) {
-        const [[rows, fields]] = await connectionPool.execute('CALL GetStoreBlockId(?, ?)', [blockHash.serialize(), height]);
+    static async getStoreBlockId(connectionPool, blockHash, height, timestamp) {
+        const [[rows, fields]] = await connectionPool.execute('CALL GetStoreBlockId(?, ?, ?)', [blockHash.serialize(), height, timestamp]);
         if (!rows || rows.length !== 1 || !rows[0].id) throw new Error('Block access denied by database');
         return rows[0].id;
     }

@@ -15,29 +15,29 @@ CREATE TABLE pool.block (
   id           INTEGER    PRIMARY KEY NOT NULL AUTO_INCREMENT,
   hash         BINARY(32) NOT NULL UNIQUE,
   height       INTEGER    NOT NULL,
+  datetime     BIGINT     NOT NULL,
   main_chain   BOOLEAN    NOT NULL DEFAULT false
 );
+
 CREATE INDEX idx_block_hash ON pool.block (hash);
 CREATE INDEX idx_block_height ON pool.block (height);
 
-CREATE TABLE pool.share (
+CREATE TABLE pool.shares (
   id           INTEGER    PRIMARY KEY NOT NULL AUTO_INCREMENT,
   user         INTEGER    NOT NULL REFERENCES pool.user(id),
   device       INTEGER    UNSIGNED NOT NULL,
-  datetime     BIGINT     NOT NULL,
   prev_block   INTEGER    NOT NULL REFERENCES pool.block(id),
+  count        INTEGER    NOT NULL,
   difficulty   DOUBLE     NOT NULL,
-  hash         BINARY(32) NOT NULL UNIQUE
+  UNIQUE(user, device, prev_block)
 );
 
-CREATE INDEX idx_share_prev ON pool.share (prev_block);
-CREATE INDEX idx_share_hash ON pool.share (hash);
+CREATE INDEX idx_share_prev ON pool.shares (prev_block);
 
 CREATE TABLE pool.payin (
   id           INTEGER    PRIMARY KEY NOT NULL AUTO_INCREMENT,
   user         INTEGER    NOT NULL REFERENCES pool.user(id),
   amount       DOUBLE     NOT NULL,
-  datetime     BIGINT     NOT NULL,
   block        INTEGER    NOT NULL REFERENCES pool.block(id),
   UNIQUE(user, block)
 );
@@ -74,20 +74,20 @@ BEGIN
     SELECT @user_id AS id;
 END //
 
-CREATE PROCEDURE pool.StoreBlockId(IN hash BINARY(32), IN height INTEGER, OUT block_id INTEGER)
+CREATE PROCEDURE pool.StoreBlockId(IN hash BINARY(32), IN height INTEGER, IN datetime INTEGER, OUT block_id INTEGER)
 SQL SECURITY INVOKER
 BEGIN
     SELECT id INTO block_id FROM block WHERE block.hash = hash;
     IF ISNULL(block_id) THEN
-        INSERT IGNORE INTO block (hash, height) VALUES (hash, height);
+        INSERT IGNORE INTO block (hash, height, datetime) VALUES (hash, height, datetime);
         SELECT id INTO block_id FROM block WHERE block.hash = hash;
     END IF;
 END //
 
-CREATE PROCEDURE pool.GetStoreBlockId(IN hash BINARY(32), IN height INTEGER)
+CREATE PROCEDURE pool.GetStoreBlockId(IN hash BINARY(32), IN height INTEGER, IN datetime INTEGER)
 SQL SECURITY INVOKER
 BEGIN
-    CALL pool.StoreBlockId(hash, height, @block_id);
+    CALL pool.StoreBlockId(hash, height,datetime, @block_id);
     SELECT @block_id AS id;
 END //
 
@@ -103,9 +103,9 @@ GRANT SELECT,INSERT,UPDATE ON pool.block TO 'pool_service'@'localhost';
 GRANT SELECT ON pool.block TO 'pool_payout'@'localhost';
 GRANT SELECT ON pool.block TO 'pool_info'@'localhost';
 
-GRANT SELECT,INSERT ON pool.share TO 'pool_server'@'localhost';
-GRANT SELECT ON pool.share TO 'pool_service'@'localhost';
-GRANT SELECT ON pool.share TO 'pool_info'@'localhost';
+GRANT SELECT,INSERT,UPDATE ON pool.shares TO 'pool_server'@'localhost';
+GRANT SELECT ON pool.shares TO 'pool_service'@'localhost';
+GRANT SELECT ON pool.shares TO 'pool_info'@'localhost';
 
 GRANT SELECT ON pool.payin TO 'pool_server'@'localhost';
 GRANT SELECT,INSERT,DELETE ON pool.payin TO 'pool_service'@'localhost';
