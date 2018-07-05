@@ -410,7 +410,7 @@ class PoolAgent extends Nimiq.Observable {
             this._regenerateSettings(newDifficulty);
             this._sendSettings();
         } else if (sharesPerSecond === 0 || this._pool.config.desiredSps / sharesPerSecond > 2) {
-            const newDifficulty = Math.max(this._pool.config.minDifficulty, this._difficulty.div(1.2));
+            const newDifficulty = Nimiq.BigNumber.max(this._pool.config.minDifficulty, this._difficulty.div(1.2));
             this._regenerateSettings(newDifficulty);
             this._sendSettings();
         }

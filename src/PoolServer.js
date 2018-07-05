@@ -82,8 +82,8 @@ class PoolServer extends Nimiq.Observable {
         /** @type {number} */
         this._numBlocksMined = 0;
 
-        /** @type {number} */
-        this._totalShareDifficulty = 0;
+        /** @type {Nimiq.BigNumber} */
+        this._totalShareDifficulty = new Nimiq.BigNumber(0);
 
         /** @type {number} */
         this._lastShareDifficulty = 0;
@@ -189,11 +189,11 @@ class PoolServer extends Nimiq.Observable {
 
     /**
      * @param {Nimiq.BlockHeader} header
-     * @param {number} difficulty
+     * @param {Nimiq.BigNumber} difficulty
      * @private
      */
     _onShare(header, difficulty) {
-        this._totalShareDifficulty += difficulty;
+        this._totalShareDifficulty = this._totalShareDifficulty.plus(difficulty);
     }
 
     /**
@@ -319,11 +319,11 @@ class PoolServer extends Nimiq.Observable {
     _calculateHashrate() {
         if (!this.consensus.established) return;
 
-        const shareDifficulty = this._totalShareDifficulty - this._lastShareDifficulty;
+        const shareDifficulty = this._totalShareDifficulty.minus(this._lastShareDifficulty);
         this._lastShareDifficulty = this._totalShareDifficulty;
 
-        const hashrate = shareDifficulty / (PoolServer.HASHRATE_INTERVAL / 1000) * Math.pow(2 ,16);
-        this._hashrates.push(Math.round(hashrate));
+        const hashrate = shareDifficulty.div(PoolServer.HASHRATE_INTERVAL / 1000).times(Math.pow(2 ,16));
+        this._hashrates.push(Math.round(hashrate.toNumber()));
         if (this._hashrates.length > 10) this._hashrates.shift();
 
         let hashrateSum = 0;
