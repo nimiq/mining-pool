@@ -49,7 +49,6 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         maxConnPerIP: 100,
         maxConnInTimePerIP: 50,
         maxConnTimeUnit: 1000 * 60 * 5,
-        pplnsShares: 1000,
         allowedErrors: 30
     },
     poolServer: {
