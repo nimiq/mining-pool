@@ -134,6 +134,7 @@ class PoolServer extends Nimiq.Observable {
         this.consensus.blockchain.on('head-changed', (head) => {
             this._announceHeadToNano(head);
             this._flushSharesToDb();
+            this._removeOldShares(head.header.prevHash);
         });
     }
 
@@ -349,14 +350,20 @@ class PoolServer extends Nimiq.Observable {
             difficulty: difficulty
         });
 
-        let submittedShares = [];
+        let submittedShares = new Nimiq.HashMap();
         if (!this._shares.contains(userId)) {
             this._shares.put(userId, submittedShares);
         } else {
             submittedShares = this._shares.get(userId);
         }
-        if (!submittedShares.includes(header.hash().toString())) {
-            submittedShares.push(header.hash().toString());
+        let sharesForPrevious = [];
+        if (!submittedShares.contains(header.prevHash.toString())) {
+            submittedShares.put(header.prevHash.toString(), sharesForPrevious);
+        } else {
+            sharesForPrevious = submittedShares.get(header.prevHash);
+        }
+        if (!sharesForPrevious.includes(header.hash().toString())) {
+            sharesForPrevious.push(header.hash().toString());
         } else {
             throw new Error("Share inserted twice");
         }
@@ -368,7 +375,15 @@ class PoolServer extends Nimiq.Observable {
      * @returns {boolean}
      */
     async containsShare(user, shareHash) {
-        return this._shares.contains(user) && this._shares.get(user).includes(shareHash.toString());
+        if (this._shares.contains(user)) {
+            const userHashesMap = this._shares.get(user);
+            for (const key of userHashesMap.keys()) {
+                if (userHashesMap.get(key).includes(shareHash.toString())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     async _flushSharesToDb() {
@@ -385,6 +400,26 @@ class PoolServer extends Nimiq.Observable {
             queryArgs.push(summary.userId, summary.device, summary.prevBlockId, 1, +summary.difficulty);
         }
         await this.connectionPool.execute(query, queryArgs);
+    }
+
+    /**
+     * @param {Nimiq.Hash} oldShareHash
+     * @private
+     */
+    async _removeOldShares(oldShareHash) {
+        for (let userId of this._shares.keys()) {
+            let userHashesMap = this._shares.get(userId);
+            for (let key of userHashesMap.keys()) {
+                if (key === oldShareHash.toString()) {
+                    userHashesMap.remove(key);
+                } else {
+                    const block = await this.consensus.blockchain.getBlock(Nimiq.Hash.fromBase64(key));
+                    if (block.header.timestamp * 1000 > this.consensus.network.time + Nimiq.Block.TIMESTAMP_DRIFT_MAX * 1000) {
+                        userHashesMap.remove(key);
+                    }
+                }
+            }
+        }
     }
 
     /**
