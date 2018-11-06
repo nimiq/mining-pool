@@ -1,5 +1,5 @@
 const https = require('https');
-const WebSocket = require('uws');
+const WebSocket = require('ws');
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 
