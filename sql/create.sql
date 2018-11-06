@@ -103,7 +103,7 @@ GRANT SELECT,INSERT,UPDATE ON pool.block TO 'pool_service'@'localhost';
 GRANT SELECT ON pool.block TO 'pool_payout'@'localhost';
 GRANT SELECT ON pool.block TO 'pool_info'@'localhost';
 
-GRANT SELECT,INSERT,UPDATE ON pool.shares TO 'pool_server'@'localhost';
+GRANT SELECT,INSERT,UPDATE,REMOVE ON pool.shares TO 'pool_server'@'localhost';
 GRANT SELECT ON pool.shares TO 'pool_service'@'localhost';
 GRANT SELECT ON pool.shares TO 'pool_info'@'localhost';
 
