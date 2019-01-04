@@ -429,7 +429,7 @@ class PoolServer extends Nimiq.Observable {
                     userHashesMap.remove(key);
                 } else {
                     const block = await this.consensus.blockchain.getBlock(Nimiq.Hash.fromBase64(key));
-                    if (block.header.timestamp * 1000 > this.consensus.network.time + Nimiq.Block.TIMESTAMP_DRIFT_MAX * 1000) {
+                    if (block && block.header.timestamp * 1000 > this.consensus.network.time + Nimiq.Block.TIMESTAMP_DRIFT_MAX * 1000) {
                         userHashesMap.remove(key);
                     }
                 }
