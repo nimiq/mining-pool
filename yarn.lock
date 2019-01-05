@@ -2,25 +2,22 @@
 # yarn lockfile v1
 
 
-"@nimiq/core@^1.3.1":
-  version "1.3.1"
-  resolved "https://registry.yarnpkg.com/@nimiq/core/-/core-1.3.1.tgz#87611b6d0208f510eb07173de0c7ce603c13445d"
-  integrity sha512-eso/o1mEJKD5GHAPQgtTz8mlEjDA7AO+vuU3beTC6IrT/6nw2aBkEAueIuanTUP2QdRi+ngaElh2EXsbcY7zWA==
+"@nimiq/core@^1.4.1":
+  version "1.4.1"
+  resolved "https://registry.yarnpkg.com/@nimiq/core/-/core-1.4.1.tgz#8558dd0dc8d34ffd866ea0a35f1fcb2ec4dc5d24"
+  integrity sha512-F/0Ermkr8oCpvxhvXzrQTbKUc/fMy+d1ah1umnj2lhB69dKFvw2Fc8/FW6TxWxRrOWnZ3Rv78HpYF6ExjjxjbQ==
   dependencies:
     "@nimiq/jungle-db" "^0.9.17"
     atob "^2.0.3"
     bindings "^1.3.0"
     btoa "^1.1.2"
     chalk "^2.3.2"
+    cpuid-git "^0.3.0"
     json5 "^1.0.1"
     lodash.merge "^4.6.1"
     minimist "^1.2.0"
     nan "^2.10.0"
-    uws "^10.148.0"
     ws "^5.2.0"
-  optionalDependencies:
-    bufferutil "^3.0.4"
-    utf-8-validate "^4.0.1"
 
 "@nimiq/jungle-db@^0.9.14":
   version "0.9.14"
@@ -163,15 +160,6 @@ buffer-fill@^0.1.0:
   resolved "https://registry.yarnpkg.com/buffer-fill/-/buffer-fill-0.1.1.tgz#76d825c4d6e50e06b7a31eb520c04d08cc235071"
   integrity sha512-YgBMBzdRLEfgxJIGu2wrvI2E03tMCFU1p7d1KhB4BOoMN0VxmTFjSyN5JtKt9z8Z9JajMHruI6SE25W96wNv7Q==
 
-bufferutil@^3.0.4:
-  version "3.0.5"
-  resolved "https://registry.yarnpkg.com/bufferutil/-/bufferutil-3.0.5.tgz#8abfc3b6da7aca6a13268b3f2482f0c7aa05fffb"
-  integrity sha512-0fUEthLqfCkYspEuP0vmiAe+PsXslE+AlILb2rmS9I4tAdm3SmpCI69M66zQL20GQEszdbXyVN6q+cpG/yhYlg==
-  dependencies:
-    bindings "~1.3.0"
-    nan "~2.10.0"
-    prebuild-install "~4.0.0"
-
 bytewise-core@^1.2.2:
   version "1.2.3"
   resolved "https://registry.yarnpkg.com/bytewise-core/-/bytewise-core-1.2.3.tgz#3fb410c7e91558eb1ab22a82834577aa6bd61d42"
@@ -245,6 +233,13 @@ core-util-is@~1.0.0:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/core-util-is/-/core-util-is-1.0.2.tgz#b5fd54220aa2bc5ab57aab7140c940754503c1a7"
   integrity sha1-tf1UIgqivFq1eqtxQMlAdUUDwac=
+
+cpuid-git@^0.3.0:
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/cpuid-git/-/cpuid-git-0.3.0.tgz#69bdf60e7aab8e1043b9e77c728af9cf16291f88"
+  integrity sha512-7fyi5uEJ2Fx8A/d+O4pXXnd3F7wJfcuURmQNuheWelmVvzboAUXfyHx5OBFE/1Zg/o+EXCgvn4aXQLQ9nctqRQ==
+  dependencies:
+    nan "^2.10.0"
 
 decompress-response@^3.3.0:
   version "3.3.0"
@@ -680,7 +675,7 @@ path-is-absolute@^1.0.0:
   resolved "https://registry.yarnpkg.com/path-is-absolute/-/path-is-absolute-1.0.1.tgz#174b9268735534ffbc7ace6bf53a5a9e1b5c5f5f"
   integrity sha1-F0uSaHNVNP+8es5r9TpanhtcX18=
 
-prebuild-install@^4.0.0, prebuild-install@~4.0.0:
+prebuild-install@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/prebuild-install/-/prebuild-install-4.0.0.tgz#206ce8106ce5efa4b6cf062fc8a0a7d93c17f3a8"
   integrity sha512-7tayxeYboJX0RbVzdnKyGl2vhQRWr6qfClEXDhOkXjuaOKCw2q8aiuFhONRYVsG/czia7KhpykIlI2S2VaPunA==
@@ -994,24 +989,10 @@ typewiselite@~1.0.0:
   resolved "https://registry.yarnpkg.com/typewiselite/-/typewiselite-1.0.0.tgz#c8882fa1bb1092c06005a97f34ef5c8508e3664e"
   integrity sha1-yIgvobsQksBgBal/NO9chQjjZk4=
 
-utf-8-validate@^4.0.1:
-  version "4.0.2"
-  resolved "https://registry.yarnpkg.com/utf-8-validate/-/utf-8-validate-4.0.2.tgz#deadcedfbf5ec535e3c72874e9ddc0663c139691"
-  integrity sha512-CS63Ssp6zynBQ4IxVzgjP5Abdo6LuJ87HFIcgIiVUeY96+MTHkqKtrUhphbwQ6jX8aSGZv8zX6l1DCPpfcAnxA==
-  dependencies:
-    bindings "~1.3.0"
-    nan "~2.10.0"
-    prebuild-install "~4.0.0"
-
 util-deprecate@~1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/util-deprecate/-/util-deprecate-1.0.2.tgz#450d4dc9fa70de732762fbd2d4a28981419a0ccf"
   integrity sha1-RQ1Nyfpw3nMnYvvS1KKJgUGaDM8=
-
-uws@^10.148.0:
-  version "10.148.2"
-  resolved "https://registry.yarnpkg.com/uws/-/uws-10.148.2.tgz#f01652a0b4bb941cb18bb7a6248d780fd0150245"
-  integrity sha1-8BZSoLS7lByxi7emJI14D9AVAkU=
 
 which-pm-runs@^1.0.0:
   version "1.0.0"
