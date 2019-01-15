@@ -77,7 +77,6 @@ class PoolService extends Nimiq.Observable {
         const ret = new Map();
         const query = `
             SELECT user, SUM(difficulty) AS difficulty_sum
-            FROM
             FROM shares
             INNER JOIN block ON block.id = shares.prev_block
             WHERE block.main_chain = true AND block.height >= ? AND block.height <= ?
