@@ -43,6 +43,7 @@ class PoolService extends Nimiq.Observable {
         this.consensus.blockchain.on('head-changed', (head) => this._synchronizer.push(async () => {
             await this._setBlockOnMainChain(head, head.height, true);
             await this._distributePayinsForBlock(head);
+            this._removeOldDbEntries(head.height);
         }));
         this.consensus.blockchain.on('block-reverted', (head) => this._synchronizer.push(() => this._setBlockOnMainChain(head, head.height, false)));
     }
@@ -91,6 +92,18 @@ class PoolService extends Nimiq.Observable {
             totalDifficulty += row.difficulty_sum;
         }
         return [ret, totalDifficulty];
+    }
+
+    async _removeOldDbEntries(currHeight) {
+        if (this._config.databaseRetentionBlocks == -1) return;
+        let query = `
+            DELETE shares
+            FROM shares
+            LEFT JOIN block on shares.prev_block=block.id
+            WHERE block.height < ?
+        `;
+        let queryArgs = [currHeight - Math.max(this._config.payoutConfirmations, this._config.pplnsBlocks, this._config.databaseRetentionBlocks)];
+        await this.connectionPool.execute(query, queryArgs);
     }
 
     /**

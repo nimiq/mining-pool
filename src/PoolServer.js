@@ -135,7 +135,6 @@ class PoolServer extends Nimiq.Observable {
             this._announceHeadToNano(head);
             this._flushSharesToDb();
             this._removeOldShares(head.header.prevHash);
-            this._removeOldDbEntries(head.height);
         });
     }
 
@@ -400,20 +399,6 @@ class PoolServer extends Nimiq.Observable {
         for (const summary of sharesBackup) {
             queryArgs.push(summary.userId, summary.device, summary.prevBlockId, 1, +summary.difficulty);
         }
-        await this.connectionPool.execute(query, queryArgs);
-    }
-
-    async _removeOldDbEntries(currHeight) {
-        let query = `
-            DELETE FROM shares
-            WHERE id IN
-                (SELECT * FROM
-                    (SELECT shares.id from shares LEFT JOIN block on shares.prev_block=block.id
-                    WHERE block.height < ?)
-                    AS shares_rename
-                )
-        `;
-        let queryArgs = [currHeight - Math.max(this._config.payoutConfirmations, this._config.pplnsBlocks)];
         await this.connectionPool.execute(query, queryArgs);
     }
 
