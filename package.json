@@ -23,7 +23,7 @@
     "jasmine": "^3.1.0"
   },
   "dependencies": {
-    "@nimiq/core": "^1.4.1",
+    "@nimiq/core": "^1.4.3",
     "@nimiq/jungle-db": "^0.9.14",
     "bignumber": "^1.1.0",
     "btoa": "^1.2.1",
@@ -31,6 +31,6 @@
     "json5": "^1.0.1",
     "lodash.merge": "^4.6.1",
     "minimist": "^1.2.0",
-    "mysql2": "^1.5.3"
+    "mysql2": "^1.6.5"
   }
 }
