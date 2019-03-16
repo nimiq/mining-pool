@@ -72,7 +72,7 @@ class PoolAgent extends Nimiq.Observable {
         if (!prevBlock || !transactions || !prunedAccounts || !accountsHash) return;
 
         this._currentBody = new Nimiq.BlockBody(this._pool.poolAddress, transactions, this._extraData, prunedAccounts);
-        const bodyHash = await this._currentBody.hash();
+        const bodyHash = this._currentBody.hash();
         this._accountsHash = accountsHash;
         this._prevBlock = prevBlock;
 
@@ -102,9 +102,8 @@ class PoolAgent extends Nimiq.Observable {
         try {
             await this._onMessage(JSON.parse(data));
         } catch (e) {
-            Nimiq.Log.e(PoolAgent, e);
-            this._pool.banIp(this.netAddress);
-            this._ws.close();
+            Nimiq.Log.e(PoolAgent, "Error on incoming message:", e.message || e);
+            this.shutdown(true);
         }
     }
 
@@ -194,7 +193,7 @@ class PoolAgent extends Nimiq.Observable {
         this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 5);
         this._timers.resetInterval('send-keep-alive-ping', () => this._ws.ping(), 1000 * 10);
 
-        Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()}, current balance: ${await this._pool.getUserBalance(this._userId)}`);
+        Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()} / ${this._deviceId} (${this.mode == PoolAgent.Mode.NANO ? "nano" : "smart"})`);
     }
 
     /**
@@ -208,7 +207,7 @@ class PoolAgent extends Nimiq.Observable {
 
         const invalidReason = await this._isNanoShareValid(block, hash);
         if (invalidReason) {
-            Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (nano): ${invalidReason}`);
+            Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} / ${this._deviceId} (nano): ${invalidReason}`);
             this._sendError('invalid share: ' + invalidReason);
             this._countNewError();
             return;
@@ -286,7 +285,7 @@ class PoolAgent extends Nimiq.Observable {
 
         const {invalidReason, difficulty} = await this._isSmartShareValid(header, hash, minerAddrProof, extraDataProof, fullBlock);
         if (invalidReason) {
-            Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} (smart): ${invalidReason}`);
+            Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} / ${this._deviceId} (smart): ${invalidReason}`);
             this._sendError('invalid share: ' + invalidReason);
             this._countNewError();
             return;
@@ -404,7 +403,7 @@ class PoolAgent extends Nimiq.Observable {
     _recalcDifficulty() {
         this._timers.clearTimeout('recalc-difficulty');
         const sharesPerSecond = 1000 * this._sharesSinceReset / Math.abs(Date.now() - this._lastSpsReset);
-        Nimiq.Log.d(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerSecond.toFixed(2)} at difficulty ${this._difficulty}`);
+        Nimiq.Log.v(PoolAgent, `SPS for ${this._address.toUserFriendlyAddress()}: ${sharesPerSecond.toFixed(2)} at difficulty ${this._difficulty}`);
         if (sharesPerSecond / this._pool.config.desiredSps > 2) {
             const newDifficulty = this._difficulty.times(1.2);
             this._regenerateSettings(newDifficulty);
@@ -472,21 +471,25 @@ class PoolAgent extends Nimiq.Observable {
         try {
             this._ws.send(JSON.stringify(msg));
         } catch (e) {
-            Nimiq.Log.e(PoolAgent, e);
-            this._onError();
+            Nimiq.Log.e(PoolAgent, "Error on outgoing message:", e.message || e);
+            this.shutdown();
         }
     }
 
-    _onClose() {
-        this._offAll();
+    shutdown(ban = false) {
+        try { if (ban) this._pool.banIp(this.netAddress); } catch (e) { Nimiq.Log.e(PoolAgent, "Error during connection shutdown:", e.message || e) }
+        try { this._offAll(); } catch (e) { Nimiq.Log.e(PoolAgent, "Error during connection shutdown:", e.message || e) }
+        try { this._timers.clearAll(); } catch (e) { Nimiq.Log.e(PoolAgent, "Error during connection shutdown:", e.message || e) }
+        try { this._pool.removeAgent(this); } catch (e) { Nimiq.Log.e(PoolAgent, "Error during connection shutdown:", e.message || e) }
+        try { this._ws.close(); } catch (e) { Nimiq.Log.e(PoolAgent, "Error during connection shutdown:", e.message || e) }
+    }
 
-        this._timers.clearAll();
-        this._pool.removeAgent(this);
+    _onClose() {
+        this.shutdown();
     }
 
     _onError() {
-        this._pool.removeAgent(this);
-        this._ws.close();
+        this.shutdown();
     }
 }
 
