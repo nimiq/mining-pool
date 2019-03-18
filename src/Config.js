@@ -50,7 +50,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         maxConnInTimePerIP: 50,
         maxConnTimeUnit: 1000 * 60 * 5,
         databaseRetentionBlocks: 0,
-        allowedErrors: 30
+        allowedErrors: 30,
+        banned: []
     },
     poolServer: {
         enabled: false,
@@ -114,7 +115,8 @@ const CONFIG_TYPES = {
             connectionTimeout: 'number',
             pplnsBlocks: 'number',
             flushSharesInterval: 'number',
-            allowedErrors: 'number'
+            allowedErrors: 'number',
+            banned: {type: 'array', inner: 'string'}
         }
     },
     poolServer: {

@@ -102,7 +102,7 @@ class PoolAgent extends Nimiq.Observable {
         try {
             await this._onMessage(JSON.parse(data));
         } catch (e) {
-            Nimiq.Log.e(PoolAgent, "Error on incoming message:", e.message || e);
+            Nimiq.Log.e(PoolAgent, `Error on incoming message (${this._address}):`, e.message || e);
             this.shutdown(true);
         }
     }
@@ -155,6 +155,13 @@ class PoolAgent extends Nimiq.Observable {
         }
 
         this._address = Nimiq.Address.fromUserFriendlyAddress(msg.address);
+
+        if (this._pool.config.banned.includes(this._address.toBase64())) {
+            this._sendError('Banned');
+            this.shutdown();
+            return;
+        }
+
         this._deviceId = msg.deviceId;
         switch (msg.mode) {
             case PoolAgent.MODE_SMART:
@@ -191,7 +198,7 @@ class PoolAgent extends Nimiq.Observable {
         }
         await this.sendBalance();
         this._timers.resetInterval('send-balance', () => this.sendBalance(), 1000 * 60 * 5);
-        this._timers.resetInterval('send-keep-alive-ping', () => this._ws.ping(), 1000 * 10);
+        this._timers.resetInterval('send-keep-alive-ping', () => { try { this._ws.ping() } catch (e) { this.shutdown() } }, 1000 * 10);
 
         Nimiq.Log.i(PoolAgent, `REGISTER ${this._address.toUserFriendlyAddress()} / ${this._deviceId} (${this.mode == PoolAgent.Mode.NANO ? "nano" : "smart"})`);
     }
@@ -471,8 +478,10 @@ class PoolAgent extends Nimiq.Observable {
         try {
             this._ws.send(JSON.stringify(msg));
         } catch (e) {
-            Nimiq.Log.e(PoolAgent, "Error on outgoing message:", e.message || e);
-            this.shutdown();
+            if (!this._address || this._registered) {
+                Nimiq.Log.e(PoolAgent, `Error on outgoing message (${this._address}):`, e.message || e);
+                this.shutdown();
+            }
         }
     }
 

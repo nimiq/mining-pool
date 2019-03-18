@@ -219,7 +219,6 @@ class PoolServer extends Nimiq.Observable {
     async _announceHeadToNano(head) {
         this._currentLightHead = head.toLight();
         await this._updateTransactions();
-        this._announceNewNextToNano();
     }
 
     async _updateTransactions() {
@@ -228,6 +227,7 @@ class PoolServer extends Nimiq.Observable {
             this._nextTransactions = block.body.transactions;
             this._nextPrunedAccounts = block.body.prunedAccounts;
             this._nextAccountsHash = block.header._accountsHash;
+            this._announceNewNextToNano();
         } catch(e) {
             setTimeout(() => this._updateTransactions(), 100);
         }
@@ -262,6 +262,7 @@ class PoolServer extends Nimiq.Observable {
      * @private
      */
     _isIpBanned(netAddress) {
+        if (this._config.banned.includes(netAddress.toString())) return true;
         if (netAddress.isPrivate()) return false;
         if (netAddress.isIPv4()) {
             return this._bannedIPv4IPs.contains(netAddress);
