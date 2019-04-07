@@ -100,6 +100,12 @@ class PoolServer extends Nimiq.Observable {
         /** @type {number} */
         this._numClients = 0;
 
+        this._numSmartClients = 0;
+        this._numNanoClients = 0;
+        this._numUnregisteredClients = 0;
+        this._lastUpdated = Date.now();
+        this._lastBlockFound = 0;
+
         /** @type {boolean} */
         this._started = false;
 
@@ -154,11 +160,58 @@ class PoolServer extends Nimiq.Observable {
         };
         const httpsServer = https.createServer(sslOptions, (req, res) => {
             res.writeHead(200);
+
+            if (req.url === '/poolinfo.json') {
+                const info = {
+                    teamSize: 1,
+                    tagLine: 'Minimalistic Mining',
+                    color: '#32cd32',
+                    poolFee: 1.0,
+                    registrations: false,
+                    registrationsOpen: true,
+                    walletAddress: poolServer.config.address,
+                };
+
+                res.end(JSON.stringify(info));
+                return;
+            }
+
+            if (req.url === '/poolstats.json') {
+                const stats = {
+                    nodes: {
+                        eu: [
+                            {
+                                clients: {
+                                    unregistered: poolServer._numUnregisteredClients,
+                                    smart: poolServer._numSmartClients,
+                                    nano: poolServer._numNanoClients,
+                                    total: poolServer._numClients,
+                                },
+                                hashrate: Math.round(poolServer.averageHashrate),
+                                banned_ips: poolServer.numIpsBanned,
+                                blocks_mined_since_restart: poolServer.numBlocksMined,
+                                wallet_address: poolServer.config.address,
+                                host: `${poolServer.config.name}:${poolServer.port}`,
+                                last_update: poolServer._lastUpdated,
+                                status: 'online',
+                            },
+                        ],
+                    },
+                    last_mined_block: poolServer._lastBlockFound,
+                    total_hashrate: Math.round(poolServer.averageHashrate),
+                    devices_online: poolServer.numClients,
+                    found_blocks: poolServer.totalBlocksMined,
+                };
+
+                res.end(JSON.stringify(stats));
+                return;
+            }
+
             res.end(`
 ${poolServer.config.name}
 ${Array(poolServer.config.name.length).fill('-').join('')}
 
-${poolServer.config.poolFee * 100}% pool fee ${''/*| automatic payout every <put your schedule here> when confirmed balance is over ${Nimiq.Policy.satoshisToCoins(poolServer.config.autoPayOutLimit)} NIM*/}
+${poolServer.config.poolFee * 100}% pool fee | automatic payout every 6 hours when confirmed balance is over ${Nimiq.Policy.satoshisToCoins(poolServer.config.autoPayOutLimit)} NIM
 
 
 ### STATS ###
@@ -252,6 +305,7 @@ Pool address: ${poolServer.config.address}
      */
     _onBlock(header) {
         this._numBlocksMined++;
+        this._lastBlockFound = Date.now();
     }
 
     /**
@@ -386,12 +440,16 @@ Pool address: ${poolServer.config.address}
         Nimiq.Log.d(PoolServer, `Pool hashrate is ${Math.round(this._averageHashrate)} H/s (10 min average)`);
 
         const clientCounts = this.getClientModeCounts();
+        this._numSmartClients = clientCounts.smart;
+        this._numNanoClients = clientCounts.nano;
+        this._numUnregisteredClients = clientCounts.unregistered;
         this._numClients = clientCounts.smart + clientCounts.nano;
         Nimiq.Log.d(PoolServer, `Connected miners: ${this._numClients}`);
 
         this._totalBlocksMined = await Helper.getTotalBlocksMined(this.connectionPool);
         Nimiq.Log.d(PoolServer, `Total blocks mined: ${this._totalBlocksMined}`);
 
+        this._lastUpdated = Date.now();
     }
 
     /**
