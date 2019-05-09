@@ -120,6 +120,19 @@ class Helper {
         const [rows, fields] = await connectionPool.execute(query);
         return rows[0].blockcount;
     }
+
+    /**
+     * @param {number} number
+     * @param {string} [separator]
+     * @returns {string}
+     */
+    static formatThousands(number, separator = ' ') {
+        let reversed = number.toString().split('').reverse();
+        for(let i = 3; i < reversed.length; i += 4) {
+            reversed.splice(i, 0, separator);
+        }
+        return reversed.reverse().join('');
+    }
 }
 
 module.exports = exports = Helper;

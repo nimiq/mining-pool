@@ -217,7 +217,7 @@ ${poolServer.config.poolFee * 100}% pool fee | automatic payout every 6 hours wh
 ### STATS ###
 
 Connected miners:    ${poolServer.numClients}
-Pool hashrate:       ${Math.round(poolServer.averageHashrate)} H/s
+Pool hashrate:       ${Helper.formatThousands(Math.round(poolServer.averageHashrate))} H/s
 Blocks mined:        ${poolServer.totalBlocksMined}
 Network:             <main|test>
 
