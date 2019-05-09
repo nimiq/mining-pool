@@ -103,7 +103,10 @@ class PoolServer extends Nimiq.Observable {
         /** @type {JungleDb.LRUMap} */
         this._blockHashToId = new JungleDb.LRUMap(10);
 
-        setInterval(() => { this._bannedIPv4IPs = new Nimiq.HashMap(); this._bannedIPv6IPs = new Nimiq.HashMap(); }, this.config.maxConnTimeUnit);
+        setInterval(() => {
+            this._connectionsInTimePerIPv4 = new Nimiq.HashMap();
+            this._connectionsInTimePerIPv6 = new Nimiq.HashMap();
+        }, this.config.maxConnTimeUnit);
 
         setInterval(() => this._checkUnbanIps(), PoolServer.UNBAN_IPS_INTERVAL);
 
