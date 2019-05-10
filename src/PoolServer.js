@@ -59,11 +59,11 @@ class PoolServer extends Nimiq.Observable {
         /** @type {Set.<PoolAgent>} */
         this._agents = new Set();
 
-        /** @type {Nimiq.HashMap.<number, Array.<Nimiq.Hash>>} */
+        /** @type {Nimiq.HashMap.<number, Array.<Hash>>} */
         this._shares = new Nimiq.HashMap();
 
-        /** @type {Array.<(userId: Nimiq.Address, device: number, prevBlockId: number)>} */
-        this._shareSummary = [];
+        /** @type {HashMap.<string, {userId: Address, deviceId: number, prevBlockId: number, difficulty: BigNumber, count: number}>} */
+        this._shareSummary = new Nimiq.HashMap();
 
         /** @type {Nimiq.HashMap.<Nimiq.NetAddress, number>} */
         this._connectionsInTimePerIPv4 = new Nimiq.HashMap();
@@ -247,7 +247,7 @@ class PoolServer extends Nimiq.Observable {
      * @param {PoolAgent} agent
      */
     requestCurrentHead(agent) {
-        agent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
+        agent.updateBlock(this._currentLightHead, this._block);
     }
 
     /**
@@ -261,10 +261,11 @@ class PoolServer extends Nimiq.Observable {
 
     async _updateTransactions() {
         try {
-            const block = await this._miner.getNextBlock();
-            this._nextTransactions = block.body.transactions;
-            this._nextPrunedAccounts = block.body.prunedAccounts;
-            this._nextAccountsHash = block.header._accountsHash;
+            this._block = await this._miner.getNextBlock();
+            this._nextTransactions = this._block.body.transactions;
+            this._nextPrunedAccounts = this._block.body.prunedAccounts;
+            this._nextAccountsHash = this._block.header._accountsHash;
+            this._nextBlockHeader = this._block.header;
             this._announceNewNextToNano();
         } catch(e) {
             setTimeout(() => this._updateTransactions(), 100);
@@ -274,7 +275,7 @@ class PoolServer extends Nimiq.Observable {
     _announceNewNextToNano() {
         for (const poolAgent of this._agents.values()) {
             if (poolAgent.mode === PoolAgent.Mode.NANO) {
-                poolAgent.updateBlock(this._currentLightHead, this._nextTransactions, this._nextPrunedAccounts, this._nextAccountsHash);
+                poolAgent.updateBlock(this._currentLightHead, this._block);
             }
         }
     }
@@ -382,21 +383,16 @@ class PoolServer extends Nimiq.Observable {
      * @param {BigNumber} difficulty
      */
     async storeShare(userId, deviceId, header, difficulty) {
-        this._shareSummary.push({
-            userId: userId,
-            device: deviceId,
-            prevBlockId: await this._getStoreBlockId(header.prevHash, header.height - 1, header.timestamp),
-            difficulty: difficulty
-        });
-
-        let submittedShares = new Nimiq.HashMap();
+        let submittedShares;
         if (!this._shares.contains(userId)) {
+            submittedShares = new Nimiq.HashMap();
             this._shares.put(userId, submittedShares);
         } else {
             submittedShares = this._shares.get(userId);
         }
-        let sharesForPrevious = [];
+        let sharesForPrevious;
         if (!submittedShares.contains(header.prevHash.toString())) {
+            sharesForPrevious = [];
             submittedShares.put(header.prevHash.toString(), sharesForPrevious);
         } else {
             sharesForPrevious = submittedShares.get(header.prevHash);
@@ -406,6 +402,22 @@ class PoolServer extends Nimiq.Observable {
         } else {
             throw new Error("Share inserted twice");
         }
+
+        const prevBlockId = await this._getStoreBlockId(header.prevHash, header.height - 1, header.timestamp);
+        const key = `${userId}:${deviceId}:${prevBlockId}`;
+        let summary;
+        if (!this._shareSummary.contains(key)) {
+            summary = {
+                userId, deviceId, prevBlockId,
+                difficulty: new Nimiq.BigNumber(0),
+                count: 0
+            };
+            this._shareSummary.put(key, summary)
+        } else {
+            summary = this._shareSummary.get(key);
+        }
+        summary.difficulty = summary.difficulty.plus(difficulty);
+        summary.count += 1;
     }
 
     /**
@@ -428,15 +440,15 @@ class PoolServer extends Nimiq.Observable {
     async _flushSharesToDb() {
         if (this._shareSummary.length === 0) return;
         let sharesBackup = this._shareSummary;
-        this._shareSummary = [];
+        this._shareSummary = new Nimiq.HashMap();
 
         let query = `
             INSERT INTO shares (user, device, prev_block, count, difficulty)
             VALUES ` + Array(sharesBackup.length).fill('(?,?,?,?,?)').join(', ') + ` ` +
-            `ON DUPLICATE KEY UPDATE count=count+1, difficulty=difficulty+values(difficulty)`;
+            `ON DUPLICATE KEY UPDATE count=count+values(count), difficulty=difficulty+values(difficulty)`;
         let queryArgs = [];
-        for (const summary of sharesBackup) {
-            queryArgs.push(summary.userId, summary.device, summary.prevBlockId, 1, +summary.difficulty);
+        for (const summary of sharesBackup.valueIterator()) {
+            queryArgs.push(summary.userId, summary.deviceId, summary.prevBlockId, summary.count, +summary.difficulty);
         }
         await this.connectionPool.execute(query, queryArgs);
     }
@@ -490,7 +502,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.Hash} blockHash
+     * @param {Hash} blockHash
      * @param {number} height
      * @param {number} timestamp
      * @returns {Promise.<number>}
