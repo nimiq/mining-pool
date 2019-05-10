@@ -18,8 +18,9 @@ class PoolServer extends Nimiq.Observable {
      * @param {string} mySqlHost
      * @param {string} sslKeyPath
      * @param {string} sslCertPath
+     * @param {{enabled: boolean, port: number, address: string, addresses: Array.<string>, header: string, checkSource: boolean, acceptHeader: boolean}} reverseProxy
      */
-    constructor(consensus, config, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath) {
+    constructor(consensus, config, port, mySqlPsw, mySqlHost, sslKeyPath, sslCertPath, reverseProxy) {
         super();
 
         /** @type {Nimiq.FullConsensus} */
@@ -48,6 +49,9 @@ class PoolServer extends Nimiq.Observable {
 
         /** @type {string} */
         this._sslCertPath = sslCertPath;
+
+        /** @type {{enabled: boolean, port: number, address: string, addresses: Array.<string>, header: string, checkSource: boolean, acceptHeader: boolean}} */
+        this._reverseProxy = reverseProxy;
 
         /** @type {Nimiq.Miner} */
         this._miner = new Nimiq.Miner(consensus.blockchain, consensus.blockchain.accounts, consensus.mempool, consensus.network.time, this.poolAddress);
@@ -171,7 +175,38 @@ class PoolServer extends Nimiq.Observable {
      */
     _onConnection(ws, req) {
         try {
-            const netAddress = Nimiq.NetAddress.fromIP(req.connection.remoteAddress);
+            let netAddress = Nimiq.NetAddress.fromIP(req.connection.remoteAddress);
+            if (this._reverseProxy.enabled || this._reverseProxy.checkSource) {
+                let addresses = this._reverseProxy.addresses;
+                if (!addresses) addresses = [this._reverseProxy.address];
+                let matches = false;
+                for (const address of addresses) {
+                    let [ip, mask] = address.split('/');
+                    if (mask) {
+                        matches = Nimiq.NetAddress.fromIP(ip).subnet(mask).equals(netAddress.subnet(mask))
+                    } else {
+                        matches = Nimiq.NetAddress.fromIP(ip).equals(netAddress);
+                    }
+                    if (matches) break;
+                }
+                if (!matches) {
+                    Nimiq.Log.e(PoolServer, `Received connection from ${netAddress.toString()} when all connections were expected from the reverse proxy: closing the connection`);
+                    ws.close();
+                    return;
+                }
+            }
+            if (this._reverseProxy.enabled || this._reverseProxy.acceptHeader) {
+                const reverseProxyHeader = this._reverseProxy.header;
+                if (req.headers[reverseProxyHeader]) {
+                    netAddress = Nimiq.NetAddress.fromIP(req.headers[reverseProxyHeader].split(/\s*,\s*/)[0]);
+                } else if (this._reverseProxy.enabled) {
+                    Nimiq.Log.i(PoolServer, `Expected header '${reverseProxyHeader}' to contain the real IP from the connecting client: closing the connection`);
+                    ws.close();
+                    return;
+                } else {
+                    Nimiq.Log.w(PoolServer, `Expected header '${reverseProxyHeader}' to contain the real IP from the connecting client`);
+                }
+            }
             if (this._isIpBanned(netAddress)) {
                 Nimiq.Log.i(PoolServer, `[${netAddress}] Banned IP tried to connect`);
                 ws.close();
@@ -192,8 +227,8 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.BlockHeader} header
-     * @param {Nimiq.BigNumber} difficulty
+     * @param {BlockHeader} header
+     * @param {BigNumber} difficulty
      * @private
      */
     _onShare(header, difficulty) {
@@ -216,7 +251,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.BlockHead} head
+     * @param {Block} head
      * @private
      */
     async _announceHeadToNano(head) {
@@ -245,7 +280,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.NetAddress} netAddress
+     * @param {NetAddress} netAddress
      */
     banIp(netAddress) {
         if (!netAddress.isPrivate()) {
@@ -260,7 +295,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.NetAddress} netAddress
+     * @param {NetAddress} netAddress
      * @returns {boolean}
      * @private
      */
@@ -291,7 +326,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @param {Nimiq.NetAddress} netAddress
+     * @param {NetAddress} netAddress
      * @returns {boolean}
      * @private
      */
@@ -343,8 +378,8 @@ class PoolServer extends Nimiq.Observable {
     /**
      * @param {number} userId
      * @param {number} deviceId
-     * @param {Nimiq.BlockHeader} header
-     * @param {Nimiq.BigNumber} difficulty
+     * @param {BlockHeader} header
+     * @param {BigNumber} difficulty
      */
     async storeShare(userId, deviceId, header, difficulty) {
         this._shareSummary.push({

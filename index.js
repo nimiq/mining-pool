@@ -23,6 +23,11 @@ if (config.poolPayout.enabled && (config.poolServer.enabled || config.poolServic
     Nimiq.Log.e(TAG, 'Pool payout needs to run separately from pool server');
     process.exit(1);
 }
+// Deprecated dumb config flag.
+if (config.dumb) {
+    console.error(`The '--dumb' flag is deprecated, use '--protocol=dumb' instead.`);
+    config.protocol = 'dumb';
+}
 
 Nimiq.Log.instance.level = config.log.level;
 for (const tag in config.log.tags) {
@@ -33,16 +38,38 @@ for (const key in config.constantOverrides) {
     Nimiq.ConstantHelper.instance.set(key, config.constantOverrides[key]);
 }
 
-Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS[config.network]);
-
-for (const seedPeer of config.seedPeers) {
-    Nimiq.GenesisConfig.SEED_PEERS.push(Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey));
-}
-
 (async () => {
-    const networkConfig = config.dumb
-        ? new Nimiq.DumbNetworkConfig()
-        : new Nimiq.WsNetworkConfig(config.host, config.port, config.tls.key, config.tls.cert);
+    Nimiq.Log.i(TAG, `Nimiq NodeJS Mining Pool starting (network=${config.network}`
+        + `, ${config.host ? `host=${config.host}, port=${config.port}` : 'dumb'})`);
+
+    Nimiq.GenesisConfig.init(Nimiq.GenesisConfig.CONFIGS[config.network]);
+
+    for (const seedPeer of config.seedPeers) {
+        let address;
+        switch (seedPeer.protocol) {
+            case 'ws':
+                address = Nimiq.WsPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey);
+                break;
+            case 'wss':
+            default:
+                address = Nimiq.WssPeerAddress.seed(seedPeer.host, seedPeer.port, seedPeer.publicKey);
+                break;
+        }
+        Nimiq.GenesisConfig.SEED_PEERS.push(address);
+    }
+
+    let networkConfig;
+    switch (config.protocol) {
+        case 'wss':
+            networkConfig = new Nimiq.WssNetworkConfig(config.host, config.port, config.tls.key, config.tls.cert, config.reverseProxy);
+            break;
+        case 'ws':
+            networkConfig = new Nimiq.WsNetworkConfig(config.host, config.port, config.reverseProxy);
+            break;
+        case 'dumb':
+            networkConfig = new Nimiq.DumbNetworkConfig();
+            break;
+    }
 
     switch (config.type) {
         case 'full':
@@ -65,19 +92,28 @@ for (const seedPeer of config.seedPeers) {
 
     // TODO: Wallet key.
     $.walletStore = await new Nimiq.WalletStore();
-    if (!config.wallet.seed) {
+    if (!config.pool.address && !config.wallet.address && !config.wallet.seed) {
         // Load or create default wallet.
         $.wallet = await $.walletStore.getDefault();
     } else if (config.wallet.seed) {
         // Load wallet from seed.
-        const mainWallet = await Nimiq.Wallet.loadPlain(config.wallet.seed);
+        const mainWallet = Nimiq.Wallet.loadPlain(config.wallet.seed);
         await $.walletStore.put(mainWallet);
         await $.walletStore.setDefault(mainWallet.address);
         $.wallet = mainWallet;
+    } else {
+        const address = Nimiq.Address.fromUserFriendlyAddress(config.pool.address || config.wallet.address);
+        $.wallet = {address: address};
+        // Check if we have a full wallet in store.
+        const wallet = await $.walletStore.get(address);
+        if (wallet) {
+            $.wallet = wallet;
+            await $.walletStore.setDefault(wallet.address);
+        }
     }
 
     if (config.poolServer.enabled) {
-        const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath);
+        const poolServer = new PoolServer($.consensus, config.pool, config.poolServer.port, config.poolServer.mySqlPsw, config.poolServer.mySqlHost, config.poolServer.sslKeyPath, config.poolServer.sslCertPath, config.reverseProxy);
 
         if (config.poolMetricsServer.enabled) {
             $.metricsServer = new MetricsServer(config.poolServer.sslKeyPath, config.poolServer.sslCertPath, config.poolMetricsServer.port, config.poolMetricsServer.password);
@@ -98,9 +134,11 @@ for (const seedPeer of config.seedPeers) {
         poolService.start();
     }
     if (config.poolPayout.enabled) {
-        const wallet = await $.walletStore.get(Nimiq.Address.fromString(config.pool.address));
-        if (!wallet) Nimiq.Log.i(TAG, 'Wallet for pool address not found, will fallback to default wallet for payouts.');
-        const poolPayout = new PoolPayout($.consensus, wallet || $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
+        if (!$.wallet.publicKey) {
+            Nimiq.Log.i(TAG, 'Wallet for pool address not found, terminating.');
+            process.exit(0);
+        }
+        const poolPayout = new PoolPayout($.consensus, $.wallet, config.pool, config.poolPayout.mySqlPsw, config.poolPayout.mySqlHost);
         poolPayout.start();
     }
 

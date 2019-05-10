@@ -10,6 +10,7 @@ const TAG = 'Config';
  * @property {string} host
  * @property {{cert: string, key: string}} tls
  * @property {number} port
+ * @property {string} protocol
  * @property {boolean} dumb
  * @property {string} type
  * @property {string} network
@@ -17,7 +18,9 @@ const TAG = 'Config';
  * @property {{enabled: boolean, port: number, sslCertPath: string, sslKeyPath: string, mySqlPsw: string, mySqlHost: string}} poolServer
  * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolService
  * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolPayout
+ * @property {{enabled: boolean, port: number, password: string}} poolMetricsServer
  * @property {{seed: string, address: string}} wallet
+ * @property {{enabled: boolean, port: number, address: string, addresses: Array.<string>, header: string, checkSource: boolean, acceptHeader: boolean}} reverseProxy
  * @property {{level: string, tags: object}} log
  * @property {Array.<{host: string, port: number, publicKey: string}>} seedPeers
  * @property {object} constantOverrides
@@ -29,7 +32,8 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         key: null
     },
     port: 8443,
-    dumb: false,
+    protocol: 'wss',
+    dumb: false, // deprecated
     type: 'full',
     network: 'main',
     pool: {
@@ -78,6 +82,16 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
     },
     wallet: {
         seed: null,
+        address: null
+    },
+    reverseProxy: {
+        enabled: false,
+        acceptHeader: false,
+        checkSource: false,
+        port: 8444,
+        address: '::ffff:127.0.0.1',
+        addresses: null,
+        header: 'x-forwarded-for'
     },
     log: {
         level: 'info',

@@ -5,18 +5,18 @@ const Helper = require('./Helper.js');
 
 class PoolPayout extends Nimiq.Observable {
     /**
-     * @param {Nimiq.BaseConsensus} consensus
-     * @param {Nimiq.Wallet} wallet
+     * @param {BaseConsensus} consensus
+     * @param {Wallet} wallet
      * @param {PoolConfig} config
      * @param {string} mySqlPsw
      * @param {string} mySqlHost
      */
     constructor(consensus, wallet, config, mySqlPsw, mySqlHost) {
         super();
-        /** @type {Nimiq.BaseConsensus} */
+        /** @type {BaseConsensus} */
         this._consensus = consensus;
 
-        /** @type {Nimiq.Wallet} */
+        /** @type {Wallet} */
         this._wallet = wallet;
 
         /** @type {PoolConfig} */
@@ -28,7 +28,7 @@ class PoolPayout extends Nimiq.Observable {
         /** @type {string} */
         this._mySqlHost = mySqlHost;
 
-        /** @type {Nimiq.Timers} */
+        /** @type {Timers} */
         this._timers = new Nimiq.Timers();
     }
 
@@ -186,7 +186,7 @@ class PoolPayout extends Nimiq.Observable {
             const hash = Nimiq.Hash.unserialize(hashBuf);
             const block = await this.consensus.blockchain.getBlock(hash, false, true);
             if (!block.minerAddr.equals(this.wallet.address)) {
-                Nimiq.Log.e(PoolPayout, `Wrong miner address in block ${block.hash()}`);
+                Nimiq.Log.e(PoolPayout, `Wrong miner address in block ${block.hash()} ${block.minerAddr} != ${this.wallet.address}`);
                 return false;
             }
             const payableBlockReward = Helper.getPayableBlockReward(this._config, block);
@@ -213,14 +213,14 @@ class PoolPayout extends Nimiq.Observable {
     }
 
     /**
-     * @type {Nimiq.Wallet}
+     * @type {Wallet}
      * */
     get wallet() {
         return this._wallet;
     }
 
     /**
-     * @type {Nimiq.BaseConsensus}
+     * @type {BaseConsensus}
      * */
     get consensus() {
         return this._consensus;
