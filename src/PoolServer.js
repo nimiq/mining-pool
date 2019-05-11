@@ -533,6 +533,8 @@ class PoolServer extends Nimiq.Observable {
      * @param {PoolAgent} agent
      */
     removeAgent(agent) {
+        if (agent.mode === PoolAgent.Mode.REMOVED) return;
+        agent.mode = PoolAgent.Mode.REMOVED;
         if (!agent.netAddress.isPrivate()) {
             // Remove one connection from total count per IP
             if (agent.netAddress.isIPv4()) {

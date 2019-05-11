@@ -112,7 +112,7 @@ class PoolAgent extends Nimiq.Observable {
         try {
             await this._onMessage(JSON.parse(data));
         } catch (e) {
-            Nimiq.Log.e(PoolAgent, `Error on incoming message (${this._address}):`, e.message || e);
+            Nimiq.Log.e(PoolAgent, `RECV_ERR ${this._address ? this._address.toUserFriendlyAddress() : 'unknown'} / ${this._deviceId} (${this.mode})`, e.message || e);
             this.shutdown(true);
         }
     }
@@ -540,9 +540,9 @@ class PoolAgent extends Nimiq.Observable {
             this._ws.send(JSON.stringify(msg));
         } catch (e) {
             if (!this._address || this._registered) {
-                Nimiq.Log.e(PoolAgent, `Error on outgoing message (${this._address}):`, e.message || e);
-                this.shutdown();
+                Nimiq.Log.e(PoolAgent, `SEND_ERR ${this._address ? this._address.toUserFriendlyAddress() : 'unknown'} / ${this._deviceId} (${this.mode})`, e.message || e);
             }
+            this.shutdown();
         }
     }
 
@@ -577,7 +577,8 @@ PoolAgent.Mode = {
     UNREGISTERED: 'unregistered',
     NANO: 'nano',
     SMART: 'smart',
-    DUMB: 'dumb'
+    DUMB: 'dumb',
+    REMOVED: 'removed'
 };
 
 PoolAgent.PAYOUT_NONCE_PREFIX = 'POOL_PAYOUT';
