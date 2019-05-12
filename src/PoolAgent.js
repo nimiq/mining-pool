@@ -73,11 +73,14 @@ class PoolAgent extends Nimiq.Observable {
         this._currentBody = new Nimiq.BlockBody(nextBlock.minerAddr, nextBlock.transactions, this._extraData, nextBlock.body.prunedAccounts);
         /** @type {BlockInterlink} */
         this._currentInterlink = nextBlock.interlink;
-        /** @type {BlockHeader} */
-        this._currentHeader = new Nimiq.BlockHeader(nextBlock.prevHash, nextBlock.header.interlinkHash, this._currentBody.hash(),
-            nextBlock.header.accountsHash, nextBlock.nBits, nextBlock.height, nextBlock.timestamp, nextBlock.nonce, nextBlock.version);
         /** @type {Block} */
         this._prevBlock = prevBlock;
+        /** @type {BlockHeader} */
+        let newHeader = new Nimiq.BlockHeader(nextBlock.prevHash, nextBlock.header.interlinkHash, this._currentBody.hash(),
+            nextBlock.header.accountsHash, nextBlock.nBits, nextBlock.height, nextBlock.timestamp, nextBlock.nonce, nextBlock.version);
+        if (newHeader.equals(this._currentHeader)) return;
+        /** @type {BlockHeader} */
+        this._currentHeader = newHeader;
 
         if (this.mode === PoolAgent.Mode.NANO) {
             this._send({
@@ -392,7 +395,7 @@ class PoolAgent extends Nimiq.Observable {
      */
     async _onDumbShareMessage(msg) {
         const nonce = msg.nonce;
-        const header = new Nimiq.BlockHeader(this._currentHeader.prevHash, this._currentHeader.interlinkHash, this._currentHeader.accountsHash, this._currentHeader.nBits, this._currentHeader.height, this._currentHeader.timestamp, nonce, this._currentHeader.version);
+        const header = new Nimiq.BlockHeader(this._currentHeader.prevHash, this._currentHeader.interlinkHash, this._currentHeader.bodyHash, this._currentHeader.accountsHash, this._currentHeader.nBits, this._currentHeader.height, this._currentHeader.timestamp, nonce, this._currentHeader.version);
 
         const invalidReason = this._isDumbShareValid(header);
         if (invalidReason) {
