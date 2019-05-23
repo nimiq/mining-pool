@@ -397,7 +397,7 @@ class PoolAgent extends Nimiq.Observable {
         const nonce = msg.nonce;
         const header = new Nimiq.BlockHeader(this._currentHeader.prevHash, this._currentHeader.interlinkHash, this._currentHeader.bodyHash, this._currentHeader.accountsHash, this._currentHeader.nBits, this._currentHeader.height, this._currentHeader.timestamp, nonce, this._currentHeader.version);
 
-        const invalidReason = this._isDumbShareValid(header);
+        const invalidReason = await this._isDumbShareValid(header);
         if (invalidReason) {
             Nimiq.Log.d(PoolAgent, `INVALID share from ${this._address.toUserFriendlyAddress()} / ${this._deviceId} (dumb): ${invalidReason}`);
             this._sendError('invalid share: ' + invalidReason);
