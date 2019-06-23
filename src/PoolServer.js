@@ -556,7 +556,7 @@ class PoolServer extends Nimiq.Observable {
     }
 
     /**
-     * @type {{ unregistered: number, smart: number, nano: number}}
+     * @type {{ unregistered: number, smart: number, nano: number, dumb: number}}
      */
     getClientModeCounts() {
         let ret = { unregistered: 0, smart: 0, nano: 0, dumb: 0 };
