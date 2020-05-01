@@ -18,6 +18,7 @@ const TAG = 'Config';
  * @property {{enabled: boolean, port: number, sslCertPath: string, sslKeyPath: string, mySqlPsw: string, mySqlHost: string}} poolServer
  * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolService
  * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolPayout
+ * @property {{enabled: boolean, mySqlPsw: string, mySqlHost: string}} poolValidate
  * @property {{enabled: boolean, port: number, password: string}} poolMetricsServer
  * @property {{seed: string, address: string}} wallet
  * @property {{enabled: boolean, port: number, address: string, addresses: Array.<string>, header: string, checkSource: boolean, acceptHeader: boolean}} reverseProxy
@@ -71,6 +72,11 @@ const DEFAULT_CONFIG = /** @type {Config} */ {
         mySqlHost: null
     },
     poolPayout: {
+        enabled: false,
+        mySqlPsw: null,
+        mySqlHost: null
+    },
+    poolValidate: {
         enabled: false,
         mySqlPsw: null,
         mySqlHost: null
@@ -151,6 +157,13 @@ const CONFIG_TYPES = {
         }
     },
     poolPayout: {
+        type: 'object', sub: {
+            enabled: 'boolean',
+            mySqlPsw: 'string',
+            mySqlHost: 'string'
+        }
+    },
+    poolValidate: {
         type: 'object', sub: {
             enabled: 'boolean',
             mySqlPsw: 'string',
