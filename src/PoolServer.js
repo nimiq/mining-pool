@@ -152,7 +152,7 @@ class PoolServer extends Nimiq.Observable {
         };
         const httpsServer = https.createServer(sslOptions, (req, res) => {
             res.writeHead(200);
-            res.end('Nimiq Pool Server\n');
+            res.end('<html><body>NIMIQ.WATCH Pool Server<br><a href="https://pool.nimiq.watch">Go to Website</a></body></html>');
         }).listen(port);
 
         // We have to access socket.remoteAddress here because otherwise req.connection.remoteAddress won't be set in the WebSocket's 'connection' event (yay)
