@@ -188,6 +188,10 @@ class PoolAgent extends Nimiq.Observable {
                 throw new Error('Client did not specify mode');
         }
 
+        if (this.mode === PoolAgent.Mode.DUMB) {
+            this._difficulty = new Nimiq.BigNumber(32);
+        }
+
         const genesisHash = Nimiq.Hash.unserialize(Nimiq.BufferUtils.fromBase64(msg.genesisHash));
         if (!genesisHash.equals(Nimiq.GenesisConfig.GENESIS_HASH)) {
             this._sendError('different genesis block');
